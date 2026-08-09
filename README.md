@@ -1,2 +1,72 @@
-# flowops
-FlowOps — SaaS de gestão operacional e produtividade para operações logísticas.
+# FlowOps — Fase 1
+
+Plataforma SaaS de gestão operacional e produtividade para operações logísticas.
+
+## Stack
+
+- Node.js 22+
+- pnpm 10+
+- Turborepo
+- Next.js + TypeScript
+- NestJS + TypeScript
+- PostgreSQL 17
+- Prisma
+- Redis 8
+- JWT + Refresh Token
+- RBAC
+- Multi-tenant
+
+## Estrutura
+
+```text
+apps/
+  api/       NestJS
+  web/       Next.js
+packages/
+  database/  Prisma schema + client
+  shared/    contratos e utilitários compartilhados
+```
+
+## Requisitos
+
+- Node.js 22+
+- pnpm 10+
+- Docker Desktop
+
+## Inicialização
+
+```bash
+cp .env.example .env
+pnpm install
+docker compose up -d
+pnpm db:generate
+pnpm db:migrate
+pnpm db:seed
+pnpm dev
+```
+
+Frontend: http://localhost:3000
+API: http://localhost:4000/api
+Swagger: http://localhost:4000/api/docs
+
+Usuário seed:
+- e-mail: admin@flowops.local
+- senha: ChangeMe123!
+
+Altere a senha imediatamente em qualquer ambiente real.
+
+## Produção
+
+Esta fase é uma fundação de desenvolvimento. Antes de produção devem ser adicionados, entre outros:
+
+- secrets manager
+- HTTPS
+- observabilidade
+- backups e restore testado
+- rate limiting distribuído
+- MFA
+- gestão de sessões/dispositivos
+- CI/CD com ambientes
+- infraestrutura cloud
+- políticas de retenção/auditoria
+- testes E2E e carga

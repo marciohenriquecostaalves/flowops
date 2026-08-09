@@ -1,0 +1,19 @@
+{
+  "name": "@flowops/database",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev --name init",
+    "prisma:seed": "tsx prisma/seed.ts",
+    "prisma:studio": "prisma studio"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.16.2"
+  },
+  "devDependencies": {
+    "prisma": "^6.16.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.9.2"
+  }
+}

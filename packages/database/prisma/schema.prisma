@@ -1,0 +1,188 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserStatus {
+  ACTIVE
+  INVITED
+  SUSPENDED
+  DISABLED
+}
+
+enum EmployeeStatus {
+  ACTIVE
+  INACTIVE
+  TERMINATED
+}
+
+enum ActivityStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum SessionStatus {
+  RUNNING
+  PAUSED
+  COMPLETED
+  CANCELLED
+}
+
+model Tenant {
+  id          String       @id @default(cuid())
+  name        String
+  slug        String       @unique
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  users       User[]
+  employees   Employee[]
+  departments Department[]
+  activities  Activity[]
+  sessions    ActivitySession[]
+  auditLogs   AuditLog[]
+}
+
+model User {
+  id            String     @id @default(cuid())
+  tenantId      String
+  email         String
+  passwordHash  String
+  name          String
+  status        UserStatus @default(ACTIVE)
+  refreshTokenHash String?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  tenant        Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  roles         UserRole[]
+  employee      Employee?
+
+  @@unique([tenantId, email])
+  @@index([tenantId])
+}
+
+model Role {
+  id          String       @id @default(cuid())
+  name        String
+  description String?
+  tenantId    String?
+  tenant      Tenant?      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  users       UserRole[]
+  permissions RolePermission[]
+
+  @@unique([tenantId, name])
+}
+
+model Permission {
+  id          String       @id @default(cuid())
+  key         String       @unique
+  description String?
+  roles       RolePermission[]
+}
+
+model UserRole {
+  userId String
+  roleId String
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+model Employee {
+  id           String         @id @default(cuid())
+  tenantId     String
+  userId       String?        @unique
+  employeeCode String
+  name         String
+  email        String?
+  status       EmployeeStatus @default(ACTIVE)
+  departmentId String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  tenant       Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user         User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+  department   Department?    @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  sessions     ActivitySession[]
+
+  @@unique([tenantId, employeeCode])
+  @@index([tenantId, status])
+}
+
+model Department {
+  id         String     @id @default(cuid())
+  tenantId   String
+  name       String
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  tenant     Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employees  Employee[]
+  activities Activity[]
+
+  @@unique([tenantId, name])
+}
+
+model Activity {
+  id           String         @id @default(cuid())
+  tenantId     String
+  departmentId String?
+  name         String
+  code         String
+  status       ActivityStatus @default(ACTIVE)
+  targetPerHour Decimal?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  tenant       Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  department   Department?    @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  sessions     ActivitySession[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, status])
+}
+
+model ActivitySession {
+  id          String        @id @default(cuid())
+  tenantId    String
+  employeeId  String
+  activityId  String
+  status      SessionStatus @default(RUNNING)
+  startedAt   DateTime      @default(now())
+  pausedAt    DateTime?
+  endedAt     DateTime?
+  productiveSeconds Int      @default(0)
+  units       Int           @default(0)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  tenant      Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employee    Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  activity    Activity      @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, employeeId, status])
+  @@index([tenantId, startedAt])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  tenantId   String
+  userId     String?
+  action     String
+  entity     String
+  entityId   String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt])
+}

@@ -1,0 +1,107 @@
+import { PrismaClient } from '@prisma/client';
+import { createHash } from 'node:crypto';
+
+const prisma = new PrismaClient();
+
+function hashPassword(password: string) {
+  return createHash('sha256').update(password).digest('hex');
+}
+
+async function main() {
+  const tenant = await prisma.tenant.upsert({
+    where: { slug: 'flowops-demo' },
+    update: {},
+    create: { name: 'FlowOps Demo', slug: 'flowops-demo' },
+  });
+
+  const permissions = [
+    ['dashboard.read', 'Visualizar dashboards'],
+    ['employees.read', 'Visualizar colaboradores'],
+    ['employees.write', 'Gerenciar colaboradores'],
+    ['activities.read', 'Visualizar atividades'],
+    ['activities.write', 'Gerenciar atividades'],
+    ['sessions.write', 'Iniciar e controlar sessões'],
+    ['audit.read', 'Visualizar auditoria'],
+  ];
+
+  for (const [key, description] of permissions) {
+    await prisma.permission.upsert({
+      where: { key },
+      update: { description },
+      create: { key, description },
+    });
+  }
+
+  const role = await prisma.role.upsert({
+    where: { tenantId_name: { tenantId: tenant.id, name: 'ADMIN' } },
+    update: {},
+    create: {
+      tenantId: tenant.id,
+      name: 'ADMIN',
+      description: 'Administrador da empresa',
+    },
+  });
+
+  const allPermissions = await prisma.permission.findMany();
+  for (const permission of allPermissions) {
+    await prisma.rolePermission.upsert({
+      where: {
+        roleId_permissionId: {
+          roleId: role.id,
+          permissionId: permission.id,
+        },
+      },
+      update: {},
+      create: { roleId: role.id, permissionId: permission.id },
+    });
+  }
+
+  const user = await prisma.user.upsert({
+    where: {
+      tenantId_email: {
+        tenantId: tenant.id,
+        email: 'admin@flowops.local',
+      },
+    },
+    update: {},
+    create: {
+      tenantId: tenant.id,
+      email: 'admin@flowops.local',
+      name: 'Administrador FlowOps',
+      passwordHash: hashPassword('ChangeMe123!'),
+    },
+  });
+
+  await prisma.userRole.upsert({
+    where: { userId_roleId: { userId: user.id, roleId: role.id } },
+    update: {},
+    create: { userId: user.id, roleId: role.id },
+  });
+
+  const department = await prisma.department.upsert({
+    where: { tenantId_name: { tenantId: tenant.id, name: 'Operação' } },
+    update: {},
+    create: { tenantId: tenant.id, name: 'Operação' },
+  });
+
+  await prisma.activity.upsert({
+    where: { tenantId_code: { tenantId: tenant.id, code: 'SEPARACAO' } },
+    update: {},
+    create: {
+      tenantId: tenant.id,
+      departmentId: department.id,
+      code: 'SEPARACAO',
+      name: 'Separação',
+      targetPerHour: 120,
+    },
+  });
+
+  console.log('Seed concluído.');
+}
+
+main()
+  .catch((error) => {
+    console.error(error);
+    process.exit(1);
+  })
+  .finally(() => prisma.$disconnect());
