@@ -35,34 +35,20 @@ async function main() {
   const role = await prisma.role.upsert({
     where: { tenantId_name: { tenantId: tenant.id, name: 'ADMIN' } },
     update: {},
-    create: {
-      tenantId: tenant.id,
-      name: 'ADMIN',
-      description: 'Administrador da empresa',
-    },
+    create: { tenantId: tenant.id, name: 'ADMIN', description: 'Administrador da empresa' },
   });
 
   const allPermissions = await prisma.permission.findMany();
   for (const permission of allPermissions) {
     await prisma.rolePermission.upsert({
-      where: {
-        roleId_permissionId: {
-          roleId: role.id,
-          permissionId: permission.id,
-        },
-      },
+      where: { roleId_permissionId: { roleId: role.id, permissionId: permission.id } },
       update: {},
       create: { roleId: role.id, permissionId: permission.id },
     });
   }
 
   const user = await prisma.user.upsert({
-    where: {
-      tenantId_email: {
-        tenantId: tenant.id,
-        email: 'admin@flowops.local',
-      },
-    },
+    where: { tenantId_email: { tenantId: tenant.id, email: 'admin@flowops.local' } },
     update: {},
     create: {
       tenantId: tenant.id,
@@ -84,7 +70,19 @@ async function main() {
     create: { tenantId: tenant.id, name: 'Operação' },
   });
 
-  await prisma.activity.upsert({
+  const shift = await prisma.shift.upsert({
+    where: { tenantId_name: { tenantId: tenant.id, name: '1º Turno' } },
+    update: {},
+    create: {
+      tenantId: tenant.id,
+      name: '1º Turno',
+      startTime: '07:00',
+      endTime: '16:48',
+      toleranceMinutes: 10,
+    },
+  });
+
+  const activity = await prisma.activity.upsert({
     where: { tenantId_code: { tenantId: tenant.id, code: 'SEPARACAO' } },
     update: {},
     create: {
@@ -96,7 +94,20 @@ async function main() {
     },
   });
 
-  console.log('Seed concluído.');
+  const employee = await prisma.employee.upsert({
+    where: { tenantId_employeeCode: { tenantId: tenant.id, employeeCode: 'EMP-001' } },
+    update: { departmentId: department.id, shiftId: shift.id },
+    create: {
+      tenantId: tenant.id,
+      employeeCode: 'EMP-001',
+      name: 'Colaborador Demo',
+      email: 'colaborador@flowops.local',
+      departmentId: department.id,
+      shiftId: shift.id,
+    },
+  });
+
+  console.log({ tenant: tenant.slug, user: user.email, department: department.name, shift: shift.name, activity: activity.code, employee: employee.employeeCode });
 }
 
 main()

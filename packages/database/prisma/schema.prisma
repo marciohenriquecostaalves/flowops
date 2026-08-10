@@ -44,21 +44,22 @@ model Tenant {
   activities  Activity[]
   sessions    ActivitySession[]
   auditLogs   AuditLog[]
+  shifts      Shift[]
 }
 
 model User {
-  id            String     @id @default(cuid())
-  tenantId      String
-  email         String
-  passwordHash  String
-  name          String
-  status        UserStatus @default(ACTIVE)
+  id              String     @id @default(cuid())
+  tenantId        String
+  email           String
+  passwordHash    String
+  name            String
+  status          UserStatus @default(ACTIVE)
   refreshTokenHash String?
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
-  tenant        Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  roles         UserRole[]
-  employee      Employee?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  tenant          Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  roles           UserRole[]
+  employee        Employee?
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -110,11 +111,13 @@ model Employee {
   email        String?
   status       EmployeeStatus @default(ACTIVE)
   departmentId String?
+  shiftId      String?
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
   tenant       Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   user         User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
   department   Department?    @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  shift        Shift?         @relation(fields: [shiftId], references: [id], onDelete: SetNull)
   sessions     ActivitySession[]
 
   @@unique([tenantId, employeeCode])
@@ -132,6 +135,23 @@ model Department {
   activities Activity[]
 
   @@unique([tenantId, name])
+}
+
+model Shift {
+  id         String   @id @default(cuid())
+  tenantId   String
+  name       String
+  startTime  String
+  endTime    String
+  toleranceMinutes Int @default(0)
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employees  Employee[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId, active])
 }
 
 model Activity {
@@ -153,21 +173,22 @@ model Activity {
 }
 
 model ActivitySession {
-  id          String        @id @default(cuid())
-  tenantId    String
-  employeeId  String
-  activityId  String
-  status      SessionStatus @default(RUNNING)
-  startedAt   DateTime      @default(now())
-  pausedAt    DateTime?
-  endedAt     DateTime?
-  productiveSeconds Int      @default(0)
-  units       Int           @default(0)
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  tenant      Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  employee    Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  activity    Activity      @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  id               String        @id @default(cuid())
+  tenantId         String
+  employeeId       String
+  activityId       String
+  status           SessionStatus @default(RUNNING)
+  startedAt        DateTime      @default(now())
+  pausedAt         DateTime?
+  endedAt          DateTime?
+  productiveSeconds Int          @default(0)
+  pausedSeconds     Int           @default(0)
+  units             Int           @default(0)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  tenant             Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employee           Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  activity           Activity     @relation(fields: [activityId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, employeeId, status])
   @@index([tenantId, startedAt])
