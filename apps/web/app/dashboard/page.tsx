@@ -88,7 +88,7 @@ export default function Dashboard() {
 
       <section className="grid grid-4" style={{ marginBottom: 16 }}>
         <Kpi title="Sessões ativas" value={String(active.length)} />
-        <Kpi title="Unidades em sessões" value={String(active.reduce((n, s) => n + s.units, 0))} />
+        <Kpi title="Unidades em sessões ativas" value={String(active.reduce((n, s) => n + s.units, 0))} />
         <Kpi title="Colaboradores no ranking" value={String(ranking.length)} />
         <Kpi title="Melhor produtividade" value={ranking[0] ? `${ranking[0].productivity.toFixed(1)}/h` : '—'} />
       </section>
