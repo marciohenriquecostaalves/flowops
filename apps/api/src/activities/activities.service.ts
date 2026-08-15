@@ -15,7 +15,7 @@ export class ActivitiesService {
     });
   }
 
-  async create(tenantId: string, dto: CreateActivityDto) {
+  async create(tenantId: string, actorUserId: string, dto: CreateActivityDto) {
     if (dto.departmentId) {
       const department = await this.prisma.department.findFirst({
         where: { id: dto.departmentId, tenantId },
@@ -24,7 +24,7 @@ export class ActivitiesService {
     }
 
     try {
-      return await this.prisma.activity.create({
+      const activity = await this.prisma.activity.create({
         data: {
           tenantId,
           name: dto.name,
@@ -33,16 +33,18 @@ export class ActivitiesService {
           targetPerHour: dto.targetPerHour,
         },
       });
+      await this.audit(tenantId, actorUserId, 'ACTIVITY_CREATED', activity.id, activity.name);
+      return activity;
     } catch {
       throw new ConflictException('Código de atividade já existe');
     }
   }
 
-  async update(tenantId: string, id: string, dto: UpdateActivityDto) {
+  async update(tenantId: string, actorUserId: string, id: string, dto: UpdateActivityDto) {
     const activity = await this.prisma.activity.findFirst({ where: { id, tenantId } });
     if (!activity) throw new NotFoundException('Atividade não encontrada');
 
-    return this.prisma.activity.update({
+    const updated = await this.prisma.activity.update({
       where: { id },
       data: {
         name: dto.name,
@@ -51,5 +53,9 @@ export class ActivitiesService {
         departmentId: dto.departmentId,
       },
     });
+    await this.audit(tenantId, actorUserId, 'ACTIVITY_UPDATED', id, updated.name);
+    return updated;
   }
+
+  private audit(tenantId: string, userId: string, action: string, entityId: string, name: string) { return this.prisma.auditLog.create({ data: { tenantId, userId, action, entity: 'ACTIVITY', entityId, metadata: { name } } }); }
 }

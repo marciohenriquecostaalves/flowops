@@ -21,7 +21,7 @@ export class OperationsService {
     return session;
   }
 
-  async start(tenantId: string, dto: StartSessionDto) {
+  async start(tenantId: string, actorUserId: string, dto: StartSessionDto) {
     const [employee, activity, running] = await Promise.all([
       this.prisma.employee.findFirst({ where: { id: dto.employeeId, tenantId, status: 'ACTIVE' } }),
       this.prisma.activity.findFirst({ where: { id: dto.activityId, tenantId, status: 'ACTIVE' } }),
@@ -34,7 +34,7 @@ export class OperationsService {
     if (!activity) throw new NotFoundException('Atividade ativa não encontrada');
     if (running) throw new ConflictException('Colaborador já possui uma sessão aberta');
 
-    return this.prisma.activitySession.create({
+    const session = await this.prisma.activitySession.create({
       data: {
         tenantId,
         employeeId: dto.employeeId,
@@ -44,9 +44,11 @@ export class OperationsService {
       },
       include: { employee: true, activity: true },
     });
+    await this.audit(tenantId, actorUserId, 'SESSION_STARTED', session.id, session);
+    return session;
   }
 
-  async pause(tenantId: string, id: string) {
+  async pause(tenantId: string, actorUserId: string, id: string) {
     const session = await this.assertSession(tenantId, id);
     if (session.status !== 'RUNNING') {
       throw new BadRequestException('Somente sessões em execução podem ser pausadas');
@@ -55,7 +57,7 @@ export class OperationsService {
     const now = new Date();
     const productive = Math.max(0, Math.floor((now.getTime() - session.startedAt.getTime()) / 1000) - session.pausedSeconds);
 
-    return this.prisma.activitySession.update({
+    const updated = await this.prisma.activitySession.update({
       where: { id },
       data: {
         status: 'PAUSED',
@@ -64,9 +66,11 @@ export class OperationsService {
       },
       include: { employee: true, activity: true },
     });
+    await this.audit(tenantId, actorUserId, 'SESSION_PAUSED', id, updated);
+    return updated;
   }
 
-  async resume(tenantId: string, id: string) {
+  async resume(tenantId: string, actorUserId: string, id: string) {
     const session = await this.assertSession(tenantId, id);
     if (session.status !== 'PAUSED' || !session.pausedAt) {
       throw new BadRequestException('Somente sessões pausadas podem ser retomadas');
@@ -75,7 +79,7 @@ export class OperationsService {
     const now = new Date();
     const paused = Math.max(0, Math.floor((now.getTime() - session.pausedAt.getTime()) / 1000));
 
-    return this.prisma.activitySession.update({
+    const updated = await this.prisma.activitySession.update({
       where: { id },
       data: {
         status: 'RUNNING',
@@ -84,9 +88,11 @@ export class OperationsService {
       },
       include: { employee: true, activity: true },
     });
+    await this.audit(tenantId, actorUserId, 'SESSION_RESUMED', id, updated);
+    return updated;
   }
 
-  async finish(tenantId: string, id: string) {
+  async finish(tenantId: string, actorUserId: string, id: string) {
     const session = await this.assertSession(tenantId, id);
     if (!['RUNNING', 'PAUSED'].includes(session.status)) {
       throw new BadRequestException('Sessão já encerrada');
@@ -104,7 +110,7 @@ export class OperationsService {
       Math.floor((now.getTime() - session.startedAt.getTime()) / 1000) - pausedSeconds,
     );
 
-    return this.prisma.activitySession.update({
+    const updated = await this.prisma.activitySession.update({
       where: { id },
       data: {
         status: 'COMPLETED',
@@ -115,15 +121,19 @@ export class OperationsService {
       },
       include: { employee: true, activity: true },
     });
+    await this.audit(tenantId, actorUserId, 'SESSION_FINISHED', id, updated);
+    return updated;
   }
 
-  async setUnits(tenantId: string, id: string, dto: UnitsDto) {
+  async setUnits(tenantId: string, actorUserId: string, id: string, dto: UnitsDto) {
     await this.assertSession(tenantId, id);
-    return this.prisma.activitySession.update({
+    const updated = await this.prisma.activitySession.update({
       where: { id },
       data: { units: dto.units },
       include: { employee: true, activity: true },
     });
+    await this.audit(tenantId, actorUserId, 'SESSION_UNITS_UPDATED', id, updated);
+    return updated;
   }
 
   active(tenantId: string) {
@@ -169,5 +179,11 @@ export class OperationsService {
     }
 
     return Array.from(byEmployee.values()).sort((a, b) => b.productivity - a.productivity);
+  }
+
+  private audit(tenantId: string, userId: string, action: string, entityId: string, session: { employee: { name: string; employeeCode: string }; activity: { name: string; code: string }; units: number }) {
+    return this.prisma.auditLog.create({
+      data: { tenantId, userId, action, entity: 'OPERATION', entityId, metadata: { employee: session.employee.name, employeeCode: session.employee.employeeCode, activity: session.activity.name, activityCode: session.activity.code, units: session.units } },
+    });
   }
 }

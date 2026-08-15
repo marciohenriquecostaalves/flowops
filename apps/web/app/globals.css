@@ -122,6 +122,15 @@ th { color:var(--muted); font-size:13px; font-weight:600; }
 .settings-intro p { margin:0; }
 .settings-monogram { width:58px; height:58px; flex:0 0 auto; border-radius:17px; font-size:23px; }
 .settings-form { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:0 16px; max-width:860px; margin-top:24px; }
+.users-form { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:0 16px; max-width:860px; margin-top:20px; }
+.password-reset { display:grid; gap:10px; max-width:620px; margin-top:22px; padding:16px; border:1px solid var(--border); border-radius:12px; background:#fbfcfd; }
+.password-reset > div { display:flex; gap:10px; }
+.password-reset input { flex:1; min-width:0; border:1px solid var(--border); border-radius:10px; padding:11px 12px; }
+.audit-list { display:grid; gap:0; }
+.audit-list > div { display:flex; justify-content:space-between; gap:16px; padding:12px 0; border-bottom:1px solid var(--border); }
+.audit-list span { color:var(--muted); font-size:13px; }
+.audit-actor { display:block; margin-top:4px; }
+.pagination { display:flex; align-items:center; justify-content:flex-end; gap:12px; margin-top:18px; color:var(--muted); font-size:14px; }
 @media (max-width: 900px) {
   .sidebar { width:76px; padding:20px 10px; }
   .brand { justify-content:center; padding:0 0 25px; }
@@ -144,6 +153,9 @@ th { color:var(--muted); font-size:13px; font-weight:600; }
   .topbar-user { display:none; }
   .app-content { padding:20px; }
   .settings-form { grid-template-columns:1fr; }
+  .users-form { grid-template-columns:1fr; }
+  .password-reset > div { flex-direction:column; }
+  .audit-list > div { align-items:flex-start; flex-direction:column; gap:4px; }
 }
 @media (max-width: 800px) {
   .login-page { grid-template-columns:1fr; }

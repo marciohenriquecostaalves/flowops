@@ -14,27 +14,27 @@ export class OperationsController {
 
   @Post('sessions/start')
   start(@Req() req: any, @Body() dto: StartSessionDto) {
-    return this.service.start(req.user.tenantId, dto);
+    return this.service.start(req.user.tenantId, req.user.sub, dto);
   }
 
   @Post('sessions/:id/pause')
   pause(@Req() req: any, @Param('id') id: string) {
-    return this.service.pause(req.user.tenantId, id);
+    return this.service.pause(req.user.tenantId, req.user.sub, id);
   }
 
   @Post('sessions/:id/resume')
   resume(@Req() req: any, @Param('id') id: string) {
-    return this.service.resume(req.user.tenantId, id);
+    return this.service.resume(req.user.tenantId, req.user.sub, id);
   }
 
   @Post('sessions/:id/finish')
   finish(@Req() req: any, @Param('id') id: string) {
-    return this.service.finish(req.user.tenantId, id);
+    return this.service.finish(req.user.tenantId, req.user.sub, id);
   }
 
   @Patch('sessions/:id/units')
   setUnits(@Req() req: any, @Param('id') id: string, @Body() dto: UnitsDto) {
-    return this.service.setUnits(req.user.tenantId, id, dto);
+    return this.service.setUnits(req.user.tenantId, req.user.sub, id, dto);
   }
 
   @Get('sessions/active')

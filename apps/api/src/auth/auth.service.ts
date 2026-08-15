@@ -3,16 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import type ms from 'ms';
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
-
-function hash(value: string) {
-  return createHash('sha256').update(value).digest('hex');
-}
-
-function safeEqual(a: string, b: string) {
-  const aa = Buffer.from(a);
-  const bb = Buffer.from(b);
-  return aa.length === bb.length && timingSafeEqual(aa, bb);
-}
+import { hashPassword, verifyPassword } from './password';
 
 @Injectable()
 export class AuthService {
@@ -27,8 +18,12 @@ export class AuthService {
       include: { roles: { include: { role: true } } },
     });
 
-    if (!user || !safeEqual(user.passwordHash, hash(password))) {
+    if (!user || !verifyPassword(password, user.passwordHash)) {
       throw new UnauthorizedException('Credenciais inválidas');
+    }
+
+    if (!user.passwordHash.startsWith('scrypt$')) {
+      await this.prisma.user.update({ where: { id: user.id }, data: { passwordHash: hashPassword(password) } });
     }
 
     return this.issueTokens(user);
@@ -49,7 +44,7 @@ export class AuthService {
       include: { roles: { include: { role: true } } },
     });
 
-    if (!user?.refreshTokenHash || !safeEqual(user.refreshTokenHash, hash(refreshToken))) {
+    if (!user?.refreshTokenHash || !verifyToken(refreshToken, user.refreshTokenHash)) {
       throw new UnauthorizedException('Sessão inválida');
     }
 
@@ -101,7 +96,7 @@ export class AuthService {
 
     await this.prisma.user.update({
       where: { id: user.id },
-      data: { refreshTokenHash: hash(refreshToken) },
+      data: { refreshTokenHash: hashToken(refreshToken) },
     });
 
     return {
@@ -116,4 +111,14 @@ export class AuthService {
       },
     };
   }
+}
+
+function hashToken(value: string) {
+  return createHash('sha256').update(value).digest('hex');
+}
+
+function verifyToken(value: string, storedHash: string) {
+  const current = Buffer.from(hashToken(value));
+  const stored = Buffer.from(storedHash);
+  return current.length === stored.length && timingSafeEqual(current, stored);
 }

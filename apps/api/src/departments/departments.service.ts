@@ -15,28 +15,32 @@ export class DepartmentsService {
     });
   }
 
-  async create(tenantId: string, dto: CreateDepartmentDto) {
+  async create(tenantId: string, actorUserId: string, dto: CreateDepartmentDto) {
     try {
-      return await this.prisma.department.create({
+      const department = await this.prisma.department.create({
         data: { tenantId, name: dto.name },
       });
+      await this.audit(tenantId, actorUserId, 'DEPARTMENT_CREATED', department.id, department.name);
+      return department;
     } catch {
       throw new ConflictException('Departamento já existe');
     }
   }
 
-  async update(tenantId: string, id: string, dto: UpdateDepartmentDto) {
+  async update(tenantId: string, actorUserId: string, id: string, dto: UpdateDepartmentDto) {
     const department = await this.prisma.department.findFirst({ where: { id, tenantId } });
     if (!department) throw new NotFoundException('Departamento não pertence à empresa');
 
     try {
-      return await this.prisma.department.update({ where: { id }, data: dto });
+      const updated = await this.prisma.department.update({ where: { id }, data: dto });
+      await this.audit(tenantId, actorUserId, 'DEPARTMENT_UPDATED', id, updated.name);
+      return updated;
     } catch {
       throw new ConflictException('Não foi possível atualizar o departamento');
     }
   }
 
-  async remove(tenantId: string, id: string) {
+  async remove(tenantId: string, actorUserId: string, id: string) {
     const department = await this.prisma.department.findFirst({
       where: { id, tenantId },
       include: { _count: { select: { employees: true, activities: true } } },
@@ -46,6 +50,9 @@ export class DepartmentsService {
       throw new ConflictException('Não é possível excluir um departamento com vínculos ativos');
     }
     await this.prisma.department.delete({ where: { id } });
+    await this.audit(tenantId, actorUserId, 'DEPARTMENT_DELETED', id, department.name);
     return { deleted: true };
   }
+
+  private audit(tenantId: string, userId: string, action: string, entityId: string, name: string) { return this.prisma.auditLog.create({ data: { tenantId, userId, action, entity: 'DEPARTMENT', entityId, metadata: { name } } }); }
 }

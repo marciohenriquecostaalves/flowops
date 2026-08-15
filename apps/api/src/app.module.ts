@@ -9,6 +9,8 @@ import { DepartmentsModule } from './departments/departments.module';
 import { ShiftsModule } from './shifts/shifts.module';
 import { OperationsModule } from './operations/operations.module';
 import { SettingsModule } from './settings/settings.module';
+import { UsersModule } from './users/users.module';
+import { JobTitlesModule } from './job-titles/job-titles.module';
 
 @Module({
   imports: [
@@ -22,6 +24,8 @@ import { SettingsModule } from './settings/settings.module';
     ShiftsModule,
     OperationsModule,
     SettingsModule,
+    UsersModule,
+    JobTitlesModule,
   ],
 })
 export class AppModule {}

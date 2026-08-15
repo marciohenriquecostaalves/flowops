@@ -8,12 +8,15 @@ const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api';
 
 type Department = { id: string; name: string };
 type Shift = { id: string; name: string; startTime: string; endTime: string; active: boolean };
+type JobTitle = { id: string; name: string; active: boolean };
 type Employee = {
   id: string;
   employeeCode: string;
   name: string;
   email: string | null;
   jobTitle: string | null;
+  jobTitleId: string | null;
+  jobTitleRef: JobTitle | null;
   photoData: string | null;
   status: string;
   department: Department | null;
@@ -25,10 +28,11 @@ export default function EmployeesPage() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
+  const [jobTitles, setJobTitles] = useState<JobTitle[]>([]);
   const [employeeCode, setEmployeeCode] = useState('');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [jobTitle, setJobTitle] = useState('');
+  const [jobTitleId, setJobTitleId] = useState('');
   const [photo, setPhoto] = useState<File | null>(null);
   const [departmentId, setDepartmentId] = useState('');
   const [shiftId, setShiftId] = useState('');
@@ -47,13 +51,14 @@ export default function EmployeesPage() {
     const authorization = headers();
     if (!authorization) return router.replace('/');
 
-    const [employeesResponse, departmentsResponse, shiftsResponse] = await Promise.all([
+    const [employeesResponse, departmentsResponse, shiftsResponse, jobTitlesResponse] = await Promise.all([
       fetch(`${API}/employees`, { headers: authorization }),
       fetch(`${API}/departments`, { headers: authorization }),
       fetch(`${API}/shifts`, { headers: authorization }),
+      fetch(`${API}/job-titles`, { headers: authorization }),
     ]);
 
-    if (!employeesResponse.ok || !departmentsResponse.ok || !shiftsResponse.ok) {
+    if (!employeesResponse.ok || !departmentsResponse.ok || !shiftsResponse.ok || !jobTitlesResponse.ok) {
       localStorage.clear();
       return router.replace('/');
     }
@@ -61,6 +66,7 @@ export default function EmployeesPage() {
     setEmployees(await employeesResponse.json());
     setDepartments(await departmentsResponse.json());
     setShifts((await shiftsResponse.json()).filter((shift: Shift) => shift.active));
+    setJobTitles((await jobTitlesResponse.json()).filter((jobTitle: JobTitle) => jobTitle.active));
     setLoading(false);
   }
 
@@ -76,7 +82,7 @@ export default function EmployeesPage() {
     const form = new FormData();
     form.append('name', name);
     if (email) form.append('email', email);
-    if (jobTitle) form.append('jobTitle', jobTitle);
+    if (jobTitleId || editing) form.append('jobTitleId', jobTitleId);
     if (departmentId || editing) form.append('departmentId', departmentId);
     if (shiftId || editing) form.append('shiftId', shiftId);
     if (!editing) form.append('employeeCode', employeeCode);
@@ -98,7 +104,7 @@ export default function EmployeesPage() {
     setEmployeeCode('');
     setName('');
     setEmail('');
-    setJobTitle('');
+    setJobTitleId('');
     setPhoto(null);
     setDepartmentId('');
     setShiftId('');
@@ -112,7 +118,7 @@ export default function EmployeesPage() {
     setEmployeeCode(employee.employeeCode);
     setName(employee.name);
     setEmail(employee.email ?? '');
-    setJobTitle(employee.jobTitle ?? '');
+    setJobTitleId(employee.jobTitleId ?? '');
     setPhoto(null);
     setDepartmentId(employee.department?.id ?? '');
     setShiftId(employee.shift?.id ?? '');
@@ -125,7 +131,7 @@ export default function EmployeesPage() {
     setEmployeeCode('');
     setName('');
     setEmail('');
-    setJobTitle('');
+    setJobTitleId('');
     setPhoto(null);
     setDepartmentId('');
     setShiftId('');
@@ -158,7 +164,7 @@ export default function EmployeesPage() {
         <form className="employee-form" onSubmit={submit}>
           <div className="field"><label>Código</label><input required minLength={2} disabled={Boolean(editing)} value={employeeCode} onChange={(e) => setEmployeeCode(e.target.value)} placeholder="EMP-002" /></div>
           <div className="field"><label>Nome</label><input required minLength={2} value={name} onChange={(e) => setName(e.target.value)} placeholder="Nome completo" /></div>
-          <div className="field"><label>Cargo</label><input value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} placeholder="Ex.: Operador logístico" /></div>
+          <div className="field"><label>Cargo</label><select value={jobTitleId} onChange={(e) => setJobTitleId(e.target.value)}><option value="">Sem cargo definido</option>{jobTitles.map((jobTitle) => <option key={jobTitle.id} value={jobTitle.id}>{jobTitle.name}</option>)}</select></div>
           <div className="field"><label>E-mail (opcional)</label><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="nome@empresa.com" /></div>
           <div className="field"><label>Departamento</label><select value={departmentId} onChange={(e) => setDepartmentId(e.target.value)}><option value="">Sem departamento</option>{departments.map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}</select></div>
           <div className="field"><label>Turno</label><select value={shiftId} onChange={(e) => setShiftId(e.target.value)}><option value="">Sem turno definido</option>{shifts.map((shift) => <option key={shift.id} value={shift.id}>{shift.name} · {shift.startTime}–{shift.endTime}</option>)}</select></div>

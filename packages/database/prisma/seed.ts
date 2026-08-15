@@ -32,11 +32,12 @@ async function main() {
     });
   }
 
-  const role = await prisma.role.upsert({
-    where: { tenantId_name: { tenantId: tenant.id, name: 'ADMIN' } },
-    update: {},
-    create: { tenantId: tenant.id, name: 'ADMIN', description: 'Administrador da empresa' },
-  });
+  const roles = await Promise.all([
+    prisma.role.upsert({ where: { tenantId_name: { tenantId: tenant.id, name: 'ADMIN' } }, update: {}, create: { tenantId: tenant.id, name: 'ADMIN', description: 'Administrador da empresa' } }),
+    prisma.role.upsert({ where: { tenantId_name: { tenantId: tenant.id, name: 'SUPERVISOR' } }, update: {}, create: { tenantId: tenant.id, name: 'SUPERVISOR', description: 'Supervisor operacional' } }),
+    prisma.role.upsert({ where: { tenantId_name: { tenantId: tenant.id, name: 'OPERATOR' } }, update: {}, create: { tenantId: tenant.id, name: 'OPERATOR', description: 'Operador' } }),
+  ]);
+  const role = roles.find((item) => item.name === 'ADMIN')!;
 
   const allPermissions = await prisma.permission.findMany();
   for (const permission of allPermissions) {
@@ -94,9 +95,15 @@ async function main() {
     },
   });
 
+  const jobTitle = await prisma.jobTitle.upsert({
+    where: { tenantId_name: { tenantId: tenant.id, name: 'Operador logístico' } },
+    update: {},
+    create: { tenantId: tenant.id, name: 'Operador logístico' },
+  });
+
   const employee = await prisma.employee.upsert({
     where: { tenantId_employeeCode: { tenantId: tenant.id, employeeCode: 'EMP-001' } },
-    update: { departmentId: department.id, shiftId: shift.id },
+    update: { departmentId: department.id, shiftId: shift.id, jobTitleId: jobTitle.id, jobTitle: jobTitle.name },
     create: {
       tenantId: tenant.id,
       employeeCode: 'EMP-001',
@@ -104,10 +111,12 @@ async function main() {
       email: 'colaborador@flowops.local',
       departmentId: department.id,
       shiftId: shift.id,
+      jobTitleId: jobTitle.id,
+      jobTitle: jobTitle.name,
     },
   });
 
-  console.log({ tenant: tenant.slug, user: user.email, department: department.name, shift: shift.name, activity: activity.code, employee: employee.employeeCode });
+  console.log({ tenant: tenant.slug, user: user.email, department: department.name, shift: shift.name, activity: activity.code, jobTitle: jobTitle.name, employee: employee.employeeCode });
 }
 
 main()

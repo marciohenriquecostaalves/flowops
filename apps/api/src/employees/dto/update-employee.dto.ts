@@ -17,6 +17,10 @@ export class UpdateEmployeeDto {
   jobTitle?: string;
 
   @IsOptional()
+  @IsString()
+  jobTitleId?: string | null;
+
+  @IsOptional()
   @IsEnum(EmployeeStatus)
   status?: EmployeeStatus;
 
