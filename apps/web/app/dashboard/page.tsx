@@ -83,6 +83,7 @@ export default function Dashboard() {
           <div className="muted">Core Operacional · Fase 2</div>
         </div>
         <div className="header-actions">
+          <Link className="btn btn-secondary" href="/operations">Operação</Link>
           <Link className="btn btn-secondary" href="/employees">Colaboradores</Link>
           <Link className="btn btn-secondary" href="/departments">Departamentos</Link>
           <Link className="btn btn-secondary" href="/shifts">Turnos</Link>

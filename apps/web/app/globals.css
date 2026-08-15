@@ -53,6 +53,12 @@ button, input, select { font: inherit; }
 .shift-form { display:grid; grid-template-columns: minmax(180px, 2fr) repeat(3, minmax(120px, 1fr)) auto; gap:16px; align-items:end; }
 .shift-form .btn { height:44px; }
 .activity-form { display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap:16px; align-items:end; }
+.operation-form { display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:16px; align-items:end; max-width:760px; }
+.session-list { display:grid; gap:12px; }
+.session-row { display:flex; align-items:flex-end; justify-content:space-between; gap:16px; padding:16px 0; border-bottom:1px solid var(--border); }
+.units-control { display:flex; align-items:flex-end; gap:8px; }
+.units-control label { display:grid; gap:8px; font-size:14px; }
+.units-control input { width:90px; border:1px solid var(--border); border-radius:10px; padding:10px; }
 .compact-form { display:grid; gap:16px; max-width:560px; }
 .compact-form .field { margin-bottom:0; }
 .compact-form .btn { height:44px; }
@@ -67,6 +73,6 @@ th { color:var(--muted); font-size:13px; font-weight:600; }
 .employee-summary { display:flex; align-items:center; gap:10px; min-width:220px; }
 .avatar { width:40px; height:40px; border-radius:50%; object-fit:cover; flex:0 0 auto; }
 .avatar-placeholder { display:grid; place-items:center; background:#d9eeeb; color:#0f766e; font-weight:800; }
-@media (max-width: 900px) { .employee-form, .shift-form, .activity-form { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 600px) { .employee-form, .shift-form, .activity-form { grid-template-columns: 1fr; } .header { align-items:flex-start; } .header-actions { flex-wrap:wrap; justify-content:flex-end; } }
+@media (max-width: 900px) { .employee-form, .shift-form, .activity-form, .operation-form { grid-template-columns: repeat(2, minmax(0, 1fr)); } .session-row { align-items:flex-start; flex-direction:column; } }
+@media (max-width: 600px) { .employee-form, .shift-form, .activity-form, .operation-form { grid-template-columns: 1fr; } .header { align-items:flex-start; } .header-actions { flex-wrap:wrap; justify-content:flex-end; } }
 .error { color:#b42318; margin:12px 0; }
