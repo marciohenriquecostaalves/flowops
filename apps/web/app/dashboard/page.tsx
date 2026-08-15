@@ -20,7 +20,7 @@ type Productivity = {
   employee: string;
   units: number;
   productiveSeconds: number;
-  productivity: number;
+  productivity: number | null;
 };
 
 export default function Dashboard() {
@@ -79,7 +79,7 @@ export default function Dashboard() {
         <Kpi title="Sessões ativas" value={String(active.length)} />
         <Kpi title="Unidades em sessões ativas" value={String(active.reduce((n, s) => n + s.units, 0))} />
         <Kpi title="Colaboradores no ranking" value={String(ranking.length)} />
-        <Kpi title="Melhor produtividade" value={ranking[0] ? `${ranking[0].productivity.toFixed(1)}/h` : '—'} />
+        <Kpi title="Melhor produtividade" value={ranking.find((row) => row.productivity !== null)?.productivity !== undefined ? `${ranking.find((row) => row.productivity !== null)!.productivity!.toFixed(1)}/h` : 'Em apuração'} />
       </section>
 
       <section className="card" style={{ marginBottom: 16 }}>
@@ -106,9 +106,9 @@ export default function Dashboard() {
         ) : ranking.map((row, index) => (
           <div key={row.employeeId} style={{ display: 'grid', gridTemplateColumns: '50px 1fr 120px 120px', gap: 12, padding: '12px 0', borderBottom: '1px solid #eee' }}>
             <strong>#{index + 1}</strong>
-            <span>{row.employee}</span>
+            <span>{row.employee}<span className="muted" style={{ display: 'block', fontSize: 13 }}>Tempo produtivo: {formatDuration(row.productiveSeconds)}</span></span>
             <span>{row.units} un.</span>
-            <strong>{row.productivity.toFixed(1)}/h</strong>
+            <strong>{row.productivity === null ? 'Em apuração' : `${row.productivity.toFixed(1)}/h`}</strong>
           </div>
         ))}
       </section>
@@ -118,4 +118,10 @@ export default function Dashboard() {
 
 function Kpi({ title, value }: { title: string; value: string }) {
   return <div className="card"><div className="muted">{title}</div><div className="kpi">{value}</div></div>;
+}
+
+function formatDuration(seconds: number) {
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')} h`;
 }

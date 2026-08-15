@@ -14,6 +14,7 @@ const items = [
   { href: '/departments', label: 'Departamentos', icon: '▤', roles: ['ADMIN', 'SUPERVISOR'] },
   { href: '/shifts', label: 'Turnos', icon: '◷', roles: ['ADMIN', 'SUPERVISOR'] },
   { href: '/activities', label: 'Atividades', icon: '✓', roles: ['ADMIN', 'SUPERVISOR'] },
+  { href: '/reports', label: 'Relatórios', icon: '▥', roles: ['ADMIN', 'SUPERVISOR'] },
 ];
 
 type AppShellProps = {

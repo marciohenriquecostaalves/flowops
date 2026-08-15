@@ -157,7 +157,7 @@ export class OperationsService {
       employee: string;
       units: number;
       productiveSeconds: number;
-      productivity: number;
+      productivity: number | null;
     }>();
 
     for (const s of sessions) {
@@ -166,19 +166,19 @@ export class OperationsService {
         employee: s.employee.name,
         units: 0,
         productiveSeconds: 0,
-        productivity: 0,
+        productivity: null,
       };
 
       current.units += s.units;
       current.productiveSeconds += s.productiveSeconds;
-      current.productivity = current.productiveSeconds
+      current.productivity = current.productiveSeconds >= 15 * 60
         ? (current.units / current.productiveSeconds) * 3600
-        : 0;
+        : null;
 
       byEmployee.set(s.employeeId, current);
     }
 
-    return Array.from(byEmployee.values()).sort((a, b) => b.productivity - a.productivity);
+    return Array.from(byEmployee.values()).sort((a, b) => (b.productivity ?? -1) - (a.productivity ?? -1));
   }
 
   private audit(tenantId: string, userId: string, action: string, entityId: string, session: { employee: { name: string; employeeCode: string }; activity: { name: string; code: string }; units: number }) {

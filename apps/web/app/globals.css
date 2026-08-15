@@ -131,6 +131,23 @@ th { color:var(--muted); font-size:13px; font-weight:600; }
 .audit-list span { color:var(--muted); font-size:13px; }
 .audit-actor { display:block; margin-top:4px; }
 .pagination { display:flex; align-items:center; justify-content:flex-end; gap:12px; margin-top:18px; color:var(--muted); font-size:14px; }
+.report-filters { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:0 16px; align-items:end; }
+.report-filter-actions { display:flex; gap:10px; padding-bottom:16px; }
+.report-grid { display:grid; grid-template-columns:minmax(0, 1.45fr) minmax(280px, .85fr); gap:16px; }
+.report-heading { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; }
+.report-heading h2, .report-grid h2 { margin:0 0 6px; }
+.report-heading p { margin:0; }
+.report-bars { display:grid; gap:16px; margin-top:22px; }
+.report-bar-row { display:grid; grid-template-columns:24px minmax(0,1fr) 72px; align-items:end; gap:10px; }
+.report-position { color:var(--muted); font-size:13px; font-weight:700; }
+.report-bar-content > div:first-child { display:flex; justify-content:space-between; gap:12px; margin-bottom:7px; }
+.report-bar-content span { color:var(--muted); font-size:12px; }
+.report-bar { height:8px; overflow:hidden; border-radius:99px; background:#e8efef; }
+.report-bar i { display:block; height:100%; border-radius:inherit; background:#1c9b90; }
+.report-list { display:grid; gap:0; }
+.report-list > div { display:flex; justify-content:space-between; gap:12px; padding:13px 0; border-bottom:1px solid var(--border); }
+.report-list span { color:var(--muted); font-size:13px; white-space:nowrap; }
+.report-section-title { margin-top:28px !important; }
 @media (max-width: 900px) {
   .sidebar { width:76px; padding:20px 10px; }
   .brand { justify-content:center; padding:0 0 25px; }
@@ -154,6 +171,9 @@ th { color:var(--muted); font-size:13px; font-weight:600; }
   .app-content { padding:20px; }
   .settings-form { grid-template-columns:1fr; }
   .users-form { grid-template-columns:1fr; }
+  .report-filters { grid-template-columns:1fr; }
+  .report-filter-actions { padding-bottom:0; }
+  .report-grid { grid-template-columns:1fr; }
   .password-reset > div { flex-direction:column; }
   .audit-list > div { align-items:flex-start; flex-direction:column; gap:4px; }
 }
