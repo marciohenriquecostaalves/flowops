@@ -45,6 +45,7 @@ model Tenant {
   sessions    ActivitySession[]
   auditLogs   AuditLog[]
   shifts      Shift[]
+roles       Role[]
 }
 
 model User {

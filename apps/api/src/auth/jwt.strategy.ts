@@ -10,10 +10,16 @@ export type JwtPayload = {
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor() {
+    constructor() {
+    const secretOrKey = process.env.JWT_ACCESS_SECRET;
+
+    if (!secretOrKey) {
+      throw new Error('JWT_ACCESS_SECRET não configurado');
+    }
+
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-      secretOrKey: process.env.JWT_ACCESS_SECRET,
+      secretOrKey,
     });
   }
 

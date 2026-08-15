@@ -1,5 +1,6 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import type ms from 'ms';
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -86,15 +87,15 @@ export class AuthService {
     };
 
     const accessToken = await this.jwt.signAsync(payload, {
-      secret: process.env.JWT_ACCESS_SECRET,
-      expiresIn: process.env.JWT_ACCESS_EXPIRES_IN ?? '15m',
+      secret: process.env.JWT_ACCESS_SECRET!,
+      expiresIn: (process.env.JWT_ACCESS_EXPIRES_IN ?? '15m') as ms.StringValue,
     });
 
     const refreshToken = await this.jwt.signAsync(
       { sub: user.id, tenantId: user.tenantId },
       {
-        secret: process.env.JWT_REFRESH_SECRET,
-        expiresIn: process.env.JWT_REFRESH_EXPIRES_IN ?? '7d',
+        secret: process.env.JWT_REFRESH_SECRET!,
+        expiresIn: (process.env.JWT_REFRESH_EXPIRES_IN ?? '7d') as ms.StringValue,
       },
     );
 
