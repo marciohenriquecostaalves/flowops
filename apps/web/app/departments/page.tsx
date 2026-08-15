@@ -1,8 +1,8 @@
 'use client';
 
-import Link from 'next/link';
 import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { AppShell } from '../components/app-shell';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api';
 
@@ -83,28 +83,10 @@ export default function DepartmentsPage() {
     await load();
   }
 
-  function logout() {
-    localStorage.clear();
-    router.replace('/');
-  }
-
   if (loading) return <main className="container">Carregando departamentos...</main>;
 
   return (
-    <main className="container">
-      <div className="header">
-        <div>
-          <div className="logo">FlowOps</div>
-          <div className="muted">Gestão de departamentos</div>
-        </div>
-        <div className="header-actions">
-          <Link className="btn btn-secondary" href="/dashboard">Dashboard</Link>
-          <Link className="btn btn-secondary" href="/employees">Colaboradores</Link>
-          <Link className="btn btn-secondary" href="/shifts">Turnos</Link>
-          <Link className="btn btn-secondary" href="/activities">Atividades</Link>
-          <button className="btn" onClick={logout}>Sair</button>
-        </div>
-      </div>
+    <AppShell title="Departamentos" subtitle="Organize a estrutura que sustenta a operação.">
 
       <section className="card" style={{ marginBottom: 16 }}>
         <h2>{editing ? 'Editar departamento' : 'Novo departamento'}</h2>
@@ -124,6 +106,6 @@ export default function DepartmentsPage() {
           <div className="table-wrap"><table><thead><tr><th>Departamento</th><th>Colaboradores</th><th>Atividades</th><th>Ações</th></tr></thead><tbody>{departments.map((department) => <tr key={department.id}><td><strong>{department.name}</strong></td><td>{department._count.employees}</td><td>{department._count.activities}</td><td><div className="row-actions"><button className="btn btn-secondary" onClick={() => edit(department)}>Editar</button><button className="btn btn-danger" onClick={() => remove(department)}>Excluir</button></div></td></tr>)}</tbody></table></div>
         )}
       </section>
-    </main>
+    </AppShell>
   );
 }

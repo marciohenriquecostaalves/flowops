@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { AppShell } from '../components/app-shell';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api';
 
@@ -68,29 +68,10 @@ export default function Dashboard() {
     await load(token);
   }
 
-  function logout() {
-    localStorage.clear();
-    router.replace('/');
-  }
-
   if (!user) return <main className="container">Carregando FlowOps...</main>;
 
   return (
-    <main className="container">
-      <div className="header">
-        <div>
-          <div className="logo">FlowOps</div>
-          <div className="muted">Core Operacional · Fase 2</div>
-        </div>
-        <div className="header-actions">
-          <Link className="btn btn-secondary" href="/operations">Operação</Link>
-          <Link className="btn btn-secondary" href="/employees">Colaboradores</Link>
-          <Link className="btn btn-secondary" href="/departments">Departamentos</Link>
-          <Link className="btn btn-secondary" href="/shifts">Turnos</Link>
-          <Link className="btn btn-secondary" href="/activities">Atividades</Link>
-          <button className="btn" onClick={logout}>Sair</button>
-        </div>
-      </div>
+    <AppShell title="Visão geral" subtitle="Acompanhe a operação e a produtividade em tempo real.">
 
       {error && <div className="error">{error}</div>}
 
@@ -131,7 +112,7 @@ export default function Dashboard() {
           </div>
         ))}
       </section>
-    </main>
+    </AppShell>
   );
 }
 

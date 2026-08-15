@@ -1,8 +1,8 @@
 'use client';
 
-import Link from 'next/link';
 import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { AppShell } from '../components/app-shell';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api';
 
@@ -107,25 +107,10 @@ export default function ShiftsPage() {
     await load();
   }
 
-  function logout() {
-    localStorage.clear();
-    router.replace('/');
-  }
-
   if (loading) return <main className="container">Carregando turnos...</main>;
 
   return (
-    <main className="container">
-      <div className="header">
-        <div><div className="logo">FlowOps</div><div className="muted">Gestão de turnos e jornadas</div></div>
-        <div className="header-actions">
-          <Link className="btn btn-secondary" href="/dashboard">Dashboard</Link>
-          <Link className="btn btn-secondary" href="/employees">Colaboradores</Link>
-          <Link className="btn btn-secondary" href="/departments">Departamentos</Link>
-          <Link className="btn btn-secondary" href="/activities">Atividades</Link>
-          <button className="btn" onClick={logout}>Sair</button>
-        </div>
-      </div>
+    <AppShell title="Turnos e jornadas" subtitle="Defina horários e tolerâncias para a equipe.">
 
       <section className="card" style={{ marginBottom: 16 }}>
         <h2>{editing ? 'Editar turno' : 'Novo turno'}</h2>
@@ -138,7 +123,6 @@ export default function ShiftsPage() {
             <button className="btn" type="submit" disabled={saving}>{saving ? 'Salvando...' : editing ? 'Salvar alterações' : 'Cadastrar'}</button>
             {editing && <button className="btn btn-secondary" type="button" onClick={cancelEdit}>Cancelar</button>}
           </div>
-          {editing && <button className="btn btn-secondary" type="button" onClick={cancelEdit}>Cancelar</button>}
         </form>
         {error && <div className="error">{error}</div>}
       </section>
@@ -149,6 +133,6 @@ export default function ShiftsPage() {
           <div className="table-wrap"><table><thead><tr><th>Turno</th><th>Horário</th><th>Tolerância</th><th>Colaboradores</th><th>Status</th><th>Ações</th></tr></thead><tbody>{shifts.map((shift) => <tr key={shift.id}><td><strong>{shift.name}</strong></td><td>{shift.startTime} – {shift.endTime}</td><td>{shift.toleranceMinutes} min.</td><td>{shift._count.employees}</td><td><span className={shift.active ? 'status' : 'status status-muted'}>{shift.active ? 'ATIVO' : 'INATIVO'}</span></td><td><div className="row-actions"><button className="btn btn-secondary" onClick={() => edit(shift)}>Editar</button><button className="btn btn-danger" onClick={() => toggleActive(shift)}>{shift.active ? 'Desativar' : 'Ativar'}</button></div></td></tr>)}</tbody></table></div>
         )}
       </section>
-    </main>
+    </AppShell>
   );
 }

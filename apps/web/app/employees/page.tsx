@@ -1,12 +1,13 @@
 'use client';
 
-import Link from 'next/link';
 import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { AppShell } from '../components/app-shell';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api';
 
 type Department = { id: string; name: string };
+type Shift = { id: string; name: string; startTime: string; endTime: string; active: boolean };
 type Employee = {
   id: string;
   employeeCode: string;
@@ -16,18 +17,21 @@ type Employee = {
   photoData: string | null;
   status: string;
   department: Department | null;
+  shift: Shift | null;
 };
 
 export default function EmployeesPage() {
   const router = useRouter();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
+  const [shifts, setShifts] = useState<Shift[]>([]);
   const [employeeCode, setEmployeeCode] = useState('');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [jobTitle, setJobTitle] = useState('');
   const [photo, setPhoto] = useState<File | null>(null);
   const [departmentId, setDepartmentId] = useState('');
+  const [shiftId, setShiftId] = useState('');
   const [status, setStatus] = useState('ACTIVE');
   const [editing, setEditing] = useState<Employee | null>(null);
   const [loading, setLoading] = useState(true);
@@ -43,18 +47,20 @@ export default function EmployeesPage() {
     const authorization = headers();
     if (!authorization) return router.replace('/');
 
-    const [employeesResponse, departmentsResponse] = await Promise.all([
+    const [employeesResponse, departmentsResponse, shiftsResponse] = await Promise.all([
       fetch(`${API}/employees`, { headers: authorization }),
       fetch(`${API}/departments`, { headers: authorization }),
+      fetch(`${API}/shifts`, { headers: authorization }),
     ]);
 
-    if (!employeesResponse.ok || !departmentsResponse.ok) {
+    if (!employeesResponse.ok || !departmentsResponse.ok || !shiftsResponse.ok) {
       localStorage.clear();
       return router.replace('/');
     }
 
     setEmployees(await employeesResponse.json());
     setDepartments(await departmentsResponse.json());
+    setShifts((await shiftsResponse.json()).filter((shift: Shift) => shift.active));
     setLoading(false);
   }
 
@@ -71,7 +77,8 @@ export default function EmployeesPage() {
     form.append('name', name);
     if (email) form.append('email', email);
     if (jobTitle) form.append('jobTitle', jobTitle);
-    if (departmentId) form.append('departmentId', departmentId);
+    if (departmentId || editing) form.append('departmentId', departmentId);
+    if (shiftId || editing) form.append('shiftId', shiftId);
     if (!editing) form.append('employeeCode', employeeCode);
     if (editing) form.append('status', status);
     if (photo) form.append('photo', photo);
@@ -94,6 +101,7 @@ export default function EmployeesPage() {
     setJobTitle('');
     setPhoto(null);
     setDepartmentId('');
+    setShiftId('');
     setStatus('ACTIVE');
     setEditing(null);
     await load();
@@ -107,6 +115,7 @@ export default function EmployeesPage() {
     setJobTitle(employee.jobTitle ?? '');
     setPhoto(null);
     setDepartmentId(employee.department?.id ?? '');
+    setShiftId(employee.shift?.id ?? '');
     setStatus(employee.status);
     setError('');
   }
@@ -119,6 +128,7 @@ export default function EmployeesPage() {
     setJobTitle('');
     setPhoto(null);
     setDepartmentId('');
+    setShiftId('');
     setStatus('ACTIVE');
   }
 
@@ -138,28 +148,10 @@ export default function EmployeesPage() {
     await load();
   }
 
-  function logout() {
-    localStorage.clear();
-    router.replace('/');
-  }
-
   if (loading) return <main className="container">Carregando colaboradores...</main>;
 
   return (
-    <main className="container">
-      <div className="header">
-        <div>
-          <div className="logo">FlowOps</div>
-          <div className="muted">Gestão de colaboradores</div>
-        </div>
-        <div className="header-actions">
-          <Link className="btn btn-secondary" href="/dashboard">Dashboard</Link>
-          <Link className="btn btn-secondary" href="/departments">Departamentos</Link>
-          <Link className="btn btn-secondary" href="/shifts">Turnos</Link>
-          <Link className="btn btn-secondary" href="/activities">Atividades</Link>
-          <button className="btn" onClick={logout}>Sair</button>
-        </div>
-      </div>
+    <AppShell title="Colaboradores" subtitle="Cadastre e mantenha atualizada a equipe operacional.">
 
       <section className="card" style={{ marginBottom: 16 }}>
         <h2>{editing ? 'Editar colaborador' : 'Novo colaborador'}</h2>
@@ -169,6 +161,7 @@ export default function EmployeesPage() {
           <div className="field"><label>Cargo</label><input value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} placeholder="Ex.: Operador logístico" /></div>
           <div className="field"><label>E-mail (opcional)</label><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="nome@empresa.com" /></div>
           <div className="field"><label>Departamento</label><select value={departmentId} onChange={(e) => setDepartmentId(e.target.value)}><option value="">Sem departamento</option>{departments.map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}</select></div>
+          <div className="field"><label>Turno</label><select value={shiftId} onChange={(e) => setShiftId(e.target.value)}><option value="">Sem turno definido</option>{shifts.map((shift) => <option key={shift.id} value={shift.id}>{shift.name} · {shift.startTime}–{shift.endTime}</option>)}</select></div>
           <div className="field"><label>Foto (JPG, PNG ou WebP)</label><input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setPhoto(e.target.files?.[0] ?? null)} /></div>
           {editing && <div className="field"><label>Status</label><select value={status} onChange={(e) => setStatus(e.target.value)}><option value="ACTIVE">Ativo</option><option value="INACTIVE">Inativo</option><option value="TERMINATED">Desligado</option></select></div>}
           <div className="form-actions">
@@ -182,9 +175,9 @@ export default function EmployeesPage() {
       <section className="card">
         <h2>Colaboradores</h2>
         {employees.length === 0 ? <p className="muted">Nenhum colaborador cadastrado.</p> : (
-          <div className="table-wrap"><table><thead><tr><th>Colaborador</th><th>Código</th><th>Departamento</th><th>Status</th><th>Ações</th></tr></thead><tbody>{employees.map((employee) => <tr key={employee.id}><td><div className="employee-summary">{employee.photoData ? <img className="avatar" src={employee.photoData} alt={`Foto de ${employee.name}`} /> : <span className="avatar avatar-placeholder">{employee.name.slice(0, 1)}</span>}<div><strong>{employee.name}</strong>{employee.jobTitle && <div className="muted">{employee.jobTitle}</div>}{employee.email && <div className="muted">{employee.email}</div>}</div></div></td><td>{employee.employeeCode}</td><td>{employee.department?.name ?? '—'}</td><td><span className={employee.status === 'ACTIVE' ? 'status' : 'status status-muted'}>{employee.status}</span></td><td><div className="row-actions"><button className="btn btn-secondary" onClick={() => edit(employee)}>Editar</button><button className="btn btn-danger" onClick={() => toggleStatus(employee)}>{employee.status === 'ACTIVE' ? 'Inativar' : 'Ativar'}</button></div></td></tr>)}</tbody></table></div>
+          <div className="table-wrap"><table><thead><tr><th>Colaborador</th><th>Código</th><th>Departamento</th><th>Turno</th><th>Status</th><th>Ações</th></tr></thead><tbody>{employees.map((employee) => <tr key={employee.id}><td><div className="employee-summary">{employee.photoData ? <img className="avatar" src={employee.photoData} alt={`Foto de ${employee.name}`} /> : <span className="avatar avatar-placeholder">{employee.name.slice(0, 1)}</span>}<div><strong>{employee.name}</strong>{employee.jobTitle && <div className="muted">{employee.jobTitle}</div>}{employee.email && <div className="muted">{employee.email}</div>}</div></div></td><td>{employee.employeeCode}</td><td>{employee.department?.name ?? '—'}</td><td>{employee.shift ? <><strong>{employee.shift.name}</strong><div className="muted">{employee.shift.startTime}–{employee.shift.endTime}</div></> : '—'}</td><td><span className={employee.status === 'ACTIVE' ? 'status' : 'status status-muted'}>{employee.status}</span></td><td><div className="row-actions"><button className="btn btn-secondary" onClick={() => edit(employee)}>Editar</button><button className="btn btn-danger" onClick={() => toggleStatus(employee)}>{employee.status === 'ACTIVE' ? 'Inativar' : 'Ativar'}</button></div></td></tr>)}</tbody></table></div>
         )}
       </section>
-    </main>
+    </AppShell>
   );
 }

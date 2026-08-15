@@ -20,11 +20,16 @@ export class EmployeesService {
       dto.departmentId
         ? this.prisma.department.findFirst({ where: { id: dto.departmentId, tenantId } })
         : null,
-      this.prisma.shift.findFirst({ where: { id: dto.departmentId ?? '', tenantId } }),
+      dto.shiftId
+        ? this.prisma.shift.findFirst({ where: { id: dto.shiftId, tenantId } })
+        : null,
     ]);
 
     if (dto.departmentId && !department) {
       throw new NotFoundException('Departamento não pertence à empresa');
+    }
+    if (dto.shiftId && !shift) {
+      throw new NotFoundException('Turno não pertence à empresa');
     }
 
     try {
@@ -37,6 +42,7 @@ export class EmployeesService {
           jobTitle: dto.jobTitle,
           photoData,
           departmentId: dto.departmentId,
+          shiftId: dto.shiftId,
         },
         include: { department: true, shift: true },
       });
@@ -63,9 +69,16 @@ export class EmployeesService {
       if (!shift) throw new NotFoundException('Turno não pertence à empresa');
     }
 
+    const data = {
+      ...dto,
+      ...(dto.departmentId === '' ? { departmentId: null } : {}),
+      ...(dto.shiftId === '' ? { shiftId: null } : {}),
+      ...(photoData ? { photoData } : {}),
+    };
+
     return this.prisma.employee.update({
       where: { id },
-      data: { ...dto, ...(photoData ? { photoData } : {}) },
+      data,
       include: { department: true, shift: true },
     });
   }

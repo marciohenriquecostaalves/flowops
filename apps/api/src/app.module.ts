@@ -8,6 +8,7 @@ import { ActivitiesModule } from './activities/activities.module';
 import { DepartmentsModule } from './departments/departments.module';
 import { ShiftsModule } from './shifts/shifts.module';
 import { OperationsModule } from './operations/operations.module';
+import { SettingsModule } from './settings/settings.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { OperationsModule } from './operations/operations.module';
     DepartmentsModule,
     ShiftsModule,
     OperationsModule,
+    SettingsModule,
   ],
 })
 export class AppModule {}

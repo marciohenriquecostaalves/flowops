@@ -18,11 +18,19 @@ export default function Home() {
   if (!ready) return null;
 
   return (
-    <main className="container">
-      <section className="card form">
-        <div className="logo">FlowOps</div>
-        <p className="muted">Gestão operacional e produtividade logística.</p>
-        <Login />
+    <main className="login-page">
+      <section className="login-presentation">
+        <div className="login-brand"><span className="login-mark">F</span><strong>FlowOps</strong></div>
+        <div className="login-copy"><p className="page-kicker">GESTÃO OPERACIONAL</p><h1>Uma visão clara para cada etapa da sua operação.</h1><p>Organize equipes, acompanhe sessões de trabalho e transforme dados operacionais em decisões melhores.</p></div>
+        <div className="login-feature"><span>✓</span><div><strong>Operação conectada</strong><small>Equipe, atividades e produtividade em um único lugar.</small></div></div>
+      </section>
+      <section className="login-panel">
+        <div className="login-card">
+          <p className="page-kicker">ACESSO SEGURO</p>
+          <h2>Entrar no sistema</h2>
+          <p className="muted">Use suas credenciais para acessar a área operacional.</p>
+          <Login />
+        </div>
       </section>
     </main>
   );
@@ -67,7 +75,7 @@ function Login() {
         <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" />
       </div>
       {error && <div className="error">{error}</div>}
-      <button className="btn" type="submit">Entrar</button>
+      <button className="btn login-submit" type="submit">Entrar no sistema</button>
     </form>
   );
 }

@@ -1,8 +1,8 @@
 'use client';
 
-import Link from 'next/link';
 import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { AppShell } from '../components/app-shell';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api';
 type Department = { id: string; name: string };
@@ -54,10 +54,8 @@ export default function ActivitiesPage() {
     if (!response.ok) { setError('Não foi possível alterar o status da atividade.'); return; }
     await load();
   }
-  function logout() { localStorage.clear(); router.replace('/'); }
   if (loading) return <main className="container">Carregando atividades...</main>;
-  return <main className="container">
-    <div className="header"><div><div className="logo">FlowOps</div><div className="muted">Gestão de atividades operacionais</div></div><div className="header-actions"><Link className="btn btn-secondary" href="/dashboard">Dashboard</Link><Link className="btn btn-secondary" href="/employees">Colaboradores</Link><Link className="btn btn-secondary" href="/departments">Departamentos</Link><Link className="btn btn-secondary" href="/shifts">Turnos</Link><button className="btn" onClick={logout}>Sair</button></div></div>
+  return <AppShell title="Atividades" subtitle="Configure as tarefas e metas da operação.">
     <section className="card" style={{ marginBottom:16 }}><h2>{editing ? 'Editar atividade' : 'Nova atividade'}</h2><form className="activity-form" onSubmit={submit}>
       <div className="field"><label>Código</label><input required disabled={Boolean(editing)} minLength={2} value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} placeholder="SEPARACAO" /></div>
       <div className="field"><label>Nome</label><input required minLength={2} value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex.: Separação de pedidos" /></div>
@@ -66,5 +64,5 @@ export default function ActivitiesPage() {
       <div className="form-actions"><button className="btn" type="submit" disabled={saving}>{saving ? 'Salvando...' : editing ? 'Salvar alterações' : 'Cadastrar'}</button>{editing && <button className="btn btn-secondary" type="button" onClick={reset}>Cancelar</button>}</div>
     </form>{error && <div className="error">{error}</div>}</section>
     <section className="card"><h2>Atividades cadastradas</h2>{activities.length === 0 ? <p className="muted">Nenhuma atividade cadastrada.</p> : <div className="table-wrap"><table><thead><tr><th>Código</th><th>Atividade</th><th>Departamento</th><th>Meta/h</th><th>Status</th><th>Ações</th></tr></thead><tbody>{activities.map((activity) => <tr key={activity.id}><td>{activity.code}</td><td><strong>{activity.name}</strong></td><td>{activity.department?.name ?? '—'}</td><td>{activity.targetPerHour ?? '—'}</td><td><span className={activity.status === 'ACTIVE' ? 'status' : 'status status-muted'}>{activity.status}</span></td><td><div className="row-actions"><button className="btn btn-secondary" onClick={() => edit(activity)}>Editar</button><button className="btn btn-danger" onClick={() => toggle(activity)}>{activity.status === 'ACTIVE' ? 'Desativar' : 'Ativar'}</button></div></td></tr>)}</tbody></table></div>}</section>
-  </main>;
+  </AppShell>;
 }
