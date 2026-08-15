@@ -16,6 +16,7 @@ export default function DepartmentsPage() {
   const router = useRouter();
   const [departments, setDepartments] = useState<Department[]>([]);
   const [name, setName] = useState('');
+  const [editing, setEditing] = useState<Department | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -46,19 +47,39 @@ export default function DepartmentsPage() {
 
     setSaving(true);
     setError('');
-    const response = await fetch(`${API}/departments`, {
-      method: 'POST',
+    const response = await fetch(editing ? `${API}/departments/${editing.id}` : `${API}/departments`, {
+      method: editing ? 'PATCH' : 'POST',
       headers: { ...authorization, 'Content-Type': 'application/json' },
       body: JSON.stringify({ name }),
     });
     setSaving(false);
 
     if (!response.ok) {
-      setError('Não foi possível cadastrar o departamento. O nome precisa ser único.');
+      setError(`Não foi possível ${editing ? 'atualizar' : 'cadastrar'} o departamento. O nome precisa ser único.`);
       return;
     }
 
     setName('');
+    setEditing(null);
+    await load();
+  }
+
+  function edit(department: Department) {
+    setEditing(department);
+    setName(department.name);
+    setError('');
+  }
+
+  async function remove(department: Department) {
+    if (!window.confirm(`Excluir o departamento ${department.name}?`)) return;
+    const authorization = headers();
+    if (!authorization) return router.replace('/');
+    setError('');
+    const response = await fetch(`${API}/departments/${department.id}`, { method: 'DELETE', headers: authorization });
+    if (!response.ok) {
+      setError('Não é possível excluir um departamento com colaboradores ou atividades vinculados.');
+      return;
+    }
     await load();
   }
 
@@ -79,15 +100,19 @@ export default function DepartmentsPage() {
         <div className="header-actions">
           <Link className="btn btn-secondary" href="/dashboard">Dashboard</Link>
           <Link className="btn btn-secondary" href="/employees">Colaboradores</Link>
+          <Link className="btn btn-secondary" href="/shifts">Turnos</Link>
           <button className="btn" onClick={logout}>Sair</button>
         </div>
       </div>
 
       <section className="card" style={{ marginBottom: 16 }}>
-        <h2>Novo departamento</h2>
+        <h2>{editing ? 'Editar departamento' : 'Novo departamento'}</h2>
         <form className="compact-form" onSubmit={submit}>
           <div className="field"><label>Nome</label><input required minLength={2} value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex.: Expedição" /></div>
-          <button className="btn" type="submit" disabled={saving}>{saving ? 'Salvando...' : 'Cadastrar'}</button>
+          <div className="form-actions">
+            <button className="btn" type="submit" disabled={saving}>{saving ? 'Salvando...' : editing ? 'Salvar alterações' : 'Cadastrar'}</button>
+            {editing && <button className="btn btn-secondary" type="button" onClick={() => { setEditing(null); setName(''); }}>Cancelar</button>}
+          </div>
         </form>
         {error && <div className="error">{error}</div>}
       </section>
@@ -95,7 +120,7 @@ export default function DepartmentsPage() {
       <section className="card">
         <h2>Departamentos</h2>
         {departments.length === 0 ? <p className="muted">Nenhum departamento cadastrado.</p> : (
-          <div className="table-wrap"><table><thead><tr><th>Departamento</th><th>Colaboradores</th><th>Atividades</th></tr></thead><tbody>{departments.map((department) => <tr key={department.id}><td><strong>{department.name}</strong></td><td>{department._count.employees}</td><td>{department._count.activities}</td></tr>)}</tbody></table></div>
+          <div className="table-wrap"><table><thead><tr><th>Departamento</th><th>Colaboradores</th><th>Atividades</th><th>Ações</th></tr></thead><tbody>{departments.map((department) => <tr key={department.id}><td><strong>{department.name}</strong></td><td>{department._count.employees}</td><td>{department._count.activities}</td><td><div className="row-actions"><button className="btn btn-secondary" onClick={() => edit(department)}>Editar</button><button className="btn btn-danger" onClick={() => remove(department)}>Excluir</button></div></td></tr>)}</tbody></table></div>
         )}
       </section>
     </main>

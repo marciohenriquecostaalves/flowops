@@ -110,6 +110,8 @@ model Employee {
   employeeCode String
   name         String
   email        String?
+  jobTitle     String?
+  photoData    String?
   status       EmployeeStatus @default(ACTIVE)
   departmentId String?
   shiftId      String?

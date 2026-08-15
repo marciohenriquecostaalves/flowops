@@ -15,7 +15,7 @@ export class EmployeesService {
     });
   }
 
-  async create(tenantId: string, dto: CreateEmployeeDto) {
+  async create(tenantId: string, dto: CreateEmployeeDto, photoData?: string) {
     const [department, shift] = await Promise.all([
       dto.departmentId
         ? this.prisma.department.findFirst({ where: { id: dto.departmentId, tenantId } })
@@ -34,6 +34,8 @@ export class EmployeesService {
           employeeCode: dto.employeeCode,
           name: dto.name,
           email: dto.email,
+          jobTitle: dto.jobTitle,
+          photoData,
           departmentId: dto.departmentId,
         },
         include: { department: true, shift: true },
@@ -43,7 +45,7 @@ export class EmployeesService {
     }
   }
 
-  async update(tenantId: string, id: string, dto: UpdateEmployeeDto) {
+  async update(tenantId: string, id: string, dto: UpdateEmployeeDto, photoData?: string) {
     const employee = await this.prisma.employee.findFirst({ where: { id, tenantId } });
     if (!employee) throw new NotFoundException('Colaborador não encontrado');
 
@@ -63,7 +65,7 @@ export class EmployeesService {
 
     return this.prisma.employee.update({
       where: { id },
-      data: dto,
+      data: { ...dto, ...(photoData ? { photoData } : {}) },
       include: { department: true, shift: true },
     });
   }

@@ -85,6 +85,7 @@ export default function Dashboard() {
         <div className="header-actions">
           <Link className="btn btn-secondary" href="/employees">Colaboradores</Link>
           <Link className="btn btn-secondary" href="/departments">Departamentos</Link>
+          <Link className="btn btn-secondary" href="/shifts">Turnos</Link>
           <button className="btn" onClick={logout}>Sair</button>
         </div>
       </div>
