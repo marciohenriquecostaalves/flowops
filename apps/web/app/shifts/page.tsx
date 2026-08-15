@@ -122,6 +122,7 @@ export default function ShiftsPage() {
           <Link className="btn btn-secondary" href="/dashboard">Dashboard</Link>
           <Link className="btn btn-secondary" href="/employees">Colaboradores</Link>
           <Link className="btn btn-secondary" href="/departments">Departamentos</Link>
+          <Link className="btn btn-secondary" href="/activities">Atividades</Link>
           <button className="btn" onClick={logout}>Sair</button>
         </div>
       </div>
