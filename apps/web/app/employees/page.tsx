@@ -101,6 +101,7 @@ export default function EmployeesPage() {
         </div>
         <div className="header-actions">
           <Link className="btn btn-secondary" href="/dashboard">Dashboard</Link>
+          <Link className="btn btn-secondary" href="/departments">Departamentos</Link>
           <button className="btn" onClick={logout}>Sair</button>
         </div>
       </div>
