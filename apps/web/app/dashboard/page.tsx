@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api';
@@ -81,7 +82,10 @@ export default function Dashboard() {
           <div className="logo">FlowOps</div>
           <div className="muted">Core Operacional · Fase 2</div>
         </div>
-        <button className="btn" onClick={logout}>Sair</button>
+        <div className="header-actions">
+          <Link className="btn btn-secondary" href="/employees">Colaboradores</Link>
+          <button className="btn" onClick={logout}>Sair</button>
+        </div>
       </div>
 
       {error && <div className="error">{error}</div>}
