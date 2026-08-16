@@ -1,4 +1,5 @@
-import { IsArray, IsEmail, IsIn, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsArray, IsEmail, IsIn, IsOptional, IsString, Matches, MinLength } from 'class-validator';
+import { PASSWORD_PATTERN, PASSWORD_POLICY_MESSAGE } from '../../auth/password';
 
 export const USER_ROLES = ['ADMIN', 'SUPERVISOR', 'OPERATOR', 'FOREMAN'] as const;
 export type UserRoleName = (typeof USER_ROLES)[number];
@@ -15,7 +16,7 @@ export function defaultAccessAreas(role: string): AccessArea[] {
 export class CreateUserDto {
   @IsString() @MinLength(2) name!: string;
   @IsEmail() email!: string;
-  @IsString() @MinLength(8) password!: string;
+  @IsString() @MinLength(8) @Matches(PASSWORD_PATTERN, { message: PASSWORD_POLICY_MESSAGE }) password!: string;
   @IsIn(USER_ROLES) role!: UserRoleName;
   @IsOptional() @IsString() employeeId?: string;
   @IsOptional() @IsArray() @IsIn(ACCESS_AREAS, { each: true }) accessAreas?: AccessArea[];

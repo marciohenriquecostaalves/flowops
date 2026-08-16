@@ -23,7 +23,7 @@ export class EmployeesController {
   @Roles('ADMIN', 'SUPERVISOR', 'OPERATOR')
   @AccessAreas('employees', 'operations')
   list(@Req() req: any) {
-    return this.service.list(req.user.tenantId);
+    return this.service.list(req.user.tenantId, req.user.roles?.includes('OPERATOR') ? req.user.sub : undefined);
   }
 
   @Post()

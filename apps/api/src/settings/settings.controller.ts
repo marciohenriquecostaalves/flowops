@@ -11,5 +11,5 @@ export class SettingsController {
   constructor(private readonly service: SettingsService) {}
   @Get() get(@Req() req: any) { return this.service.get(req.user.tenantId); }
   @Get('email-domain') @Roles('ADMIN', 'SUPERVISOR') getEmailDomain(@Req() req: any) { return this.service.getEmailDomain(req.user.tenantId); }
-  @Patch() update(@Req() req: any, @Body() dto: UpdateSettingsDto) { return this.service.update(req.user.tenantId, dto); }
+  @Patch() update(@Req() req: any, @Body() dto: UpdateSettingsDto) { return this.service.update(req.user.tenantId, req.user.sub, dto); }
 }

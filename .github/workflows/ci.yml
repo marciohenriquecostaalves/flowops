@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Testes, lint e build
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://flowops:flowops@localhost:5432/flowops?schema=public
+      API_PORT: 4000
+      CORS_ORIGIN: http://localhost:3000
+      NEXT_PUBLIC_API_URL: http://localhost:4000/api
+      JWT_ACCESS_SECRET: ci-access-secret
+      JWT_REFRESH_SECRET: ci-refresh-secret
+      JWT_ACCESS_EXPIRES_IN: 15m
+      JWT_REFRESH_EXPIRES_IN: 7d
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: flowops
+          POSTGRES_PASSWORD: flowops
+          POSTGRES_DB: flowops
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U flowops -d flowops"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:8-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Baixar código
+        uses: actions/checkout@v4
+
+      - name: Configurar pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.12.1
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Instalar dependências
+        run: pnpm install --frozen-lockfile
+
+      - name: Gerar Prisma Client
+        run: pnpm db:generate
+
+      - name: Aplicar migrações
+        run: pnpm db:deploy
+
+      - name: Validar tipos
+        run: pnpm lint
+
+      - name: Executar testes unitários
+        run: pnpm test
+
+      - name: Executar testes E2E
+        run: pnpm test:e2e
+        env:
+          FLOWOPS_E2E: true
+
+      - name: Validar build
+        run: pnpm build

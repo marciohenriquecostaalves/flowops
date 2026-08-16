@@ -1,5 +1,8 @@
 import { createHash, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 
+export const PASSWORD_PATTERN = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,}$/;
+export const PASSWORD_POLICY_MESSAGE = 'A senha deve ter pelo menos 8 caracteres, incluindo maiúscula, minúscula, número e símbolo';
+
 export function hashPassword(password: string) {
   const salt = randomBytes(16).toString('hex');
   const derived = scryptSync(password, salt, 64).toString('hex');

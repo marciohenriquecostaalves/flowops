@@ -15,7 +15,7 @@ export class AuthService {
 
   async login(email: string, password: string) {
     const user = await this.prisma.user.findFirst({
-      where: { email, status: 'ACTIVE' },
+      where: { email: email.trim().toLowerCase(), status: 'ACTIVE' },
       include: { roles: { include: { role: true } } },
     });
 
@@ -45,7 +45,7 @@ export class AuthService {
       include: { roles: { include: { role: true } } },
     });
 
-    if (!user?.refreshTokenHash || !verifyToken(refreshToken, user.refreshTokenHash)) {
+    if (!user || user.status !== 'ACTIVE' || user.tenantId !== payload.tenantId || !user.refreshTokenHash || !verifyToken(refreshToken, user.refreshTokenHash)) {
       throw new UnauthorizedException('Sessão inválida');
     }
 
