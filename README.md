@@ -79,3 +79,5 @@ Esta fase é uma fundação de desenvolvimento. Antes de produção devem ser ad
 - infraestrutura cloud
 - políticas de retenção/auditoria
 - testes E2E e carga
+
+O runbook de implantação com Docker, HTTPS, backups, migrações e rollback está em docs/production.md.

@@ -108,6 +108,7 @@ async function main() {
     create: {
       tenantId: tenant.id,
       employeeCode: 'EMP-001',
+      badgeCode: 'CR-00000001',
       name: 'Colaborador Demo',
       email: 'colaborador@flowops.local',
       departmentId: department.id,

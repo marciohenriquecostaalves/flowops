@@ -82,7 +82,7 @@ export function AppShell({ title, subtitle, children }: AppShellProps) {
           <span className="nav-label">GESTÃO</span>
           {items.filter((item) => canAccess(item, roles, accessAreas)).map((item) => <Link key={item.href} href={item.href} className={`nav-item ${pathname === item.href ? 'active' : ''}`}><span>{item.icon}</span>{item.label}</Link>)}
           <span className="nav-label">SISTEMA</span>
-          {roles.includes('ADMIN') && <><Link href="/users" className={`nav-item ${pathname === '/users' ? 'active' : ''}`}><span>◉</span>Usuários e acessos</Link><Link href="/settings" className={`nav-item ${pathname === '/settings' ? 'active' : ''}`}><span>⚙</span>Configurações</Link></>}
+          {roles.includes('ADMIN') && <><Link href="/users" className={`nav-item ${pathname === '/users' ? 'active' : ''}`}><span>◉</span>Usuários e acessos</Link><Link href="/kiosks" className={`nav-item ${pathname === '/kiosks' ? 'active' : ''}`}><span>▣</span>Quiosques</Link><Link href="/settings" className={`nav-item ${pathname === '/settings' ? 'active' : ''}`}><span>⚙</span>Configurações</Link></>}
         </nav>
 
         <button className="sidebar-logout" onClick={logout}><span>↪</span>Sair do sistema</button>

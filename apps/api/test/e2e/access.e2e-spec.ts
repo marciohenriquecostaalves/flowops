@@ -14,6 +14,7 @@ describe('access control (e2e)', () => {
   let tenantId: string;
   let departmentId: string;
   let shiftId: string;
+  let activityId: string;
   let adminToken: string;
   let operatorToken: string;
   const password = 'FlowOps@2026';
@@ -47,8 +48,10 @@ describe('access control (e2e)', () => {
     });
     const department = await prisma.department.create({ data: { tenantId, name: `${prefix} Operação` } });
     const shift = await prisma.shift.create({ data: { tenantId, name: `${prefix} Turno`, startTime: '07:00', endTime: '16:48' } });
+    const activity = await prisma.activity.create({ data: { tenantId, name: `${prefix} Separação`, code: `${prefix}-SEP`, departmentId: department.id } });
     departmentId = department.id;
     shiftId = shift.id;
+    activityId = activity.id;
 
     const adminLogin = await login(`${prefix}@flowops.local`, 'ChangeMe123!');
     adminToken = adminLogin.accessToken;
@@ -93,9 +96,11 @@ describe('access control (e2e)', () => {
 
     expect((await http('/employees', { token: supervisorToken })).status).toBe(200);
     expect((await http('/reports/productivity', { token: supervisorToken })).status).toBe(200);
+    expect((await http('/history/punches', { token: supervisorToken })).status).toBe(200);
     expect((await http('/users', { token: supervisorToken })).status).toBe(403);
 
     expect((await http('/operations/sessions/active', { token: operatorToken })).status).toBe(200);
+    expect((await http('/history/punches', { token: operatorToken })).status).toBe(200);
     expect((await http('/reports/productivity', { token: operatorToken })).status).toBe(403);
     const operatorEmployees = await http('/employees', { token: operatorToken });
     expect(operatorEmployees.status).toBe(200);
@@ -103,6 +108,7 @@ describe('access control (e2e)', () => {
     expect(operatorEmployees.body[0].id).toBe(employeeIds.OPERATOR);
 
     expect((await http('/reports/productivity', { token: foremanToken })).status).toBe(200);
+    expect((await http('/history/punches', { token: foremanToken })).status).toBe(200);
     expect((await http('/operations/sessions/active', { token: foremanToken })).status).toBe(200);
     expect((await http('/employees', { token: foremanToken })).status).toBe(403);
   });
@@ -111,6 +117,55 @@ describe('access control (e2e)', () => {
     const revoke = await http(`/employees/${employeeIds.OPERATOR}/access`, { method: 'DELETE', token: adminToken });
     expect(revoke.status).toBe(200);
     expect((await http('/operations/sessions/active', { token: operatorToken })).status).toBe(401);
+  });
+
+  it('registers the four kiosk punches in sequence', async () => {
+    const badgeCode = `${prefix}-BADGE`.toUpperCase();
+    await prisma.employee.update({ where: { id: employeeIds.OPERATOR }, data: { badgeCode } });
+    const kiosk = await http('/kiosk/devices', {
+      method: 'POST',
+      token: adminToken,
+      body: { name: `${prefix} Quiosque`, activityId },
+    });
+    expect(kiosk.status).toBe(201);
+
+    const expected = ['START', 'PAUSE', 'RESUME', 'FINISH'];
+    const actual: string[] = [];
+    for (const type of expected) {
+      const result = await kioskHttp('/kiosk/punch', kiosk.body.code, kiosk.body.token, badgeCode);
+      expect(result.status).toBe(201);
+      actual.push(result.body.type);
+    }
+    expect(actual).toEqual(expected);
+
+    const rotated = await http(`/kiosk/devices/${kiosk.body.id}/token`, {
+      method: 'POST',
+      token: adminToken,
+    });
+    expect(rotated.status).toBe(201);
+    expect(rotated.body.token).toBeTruthy();
+    expect(rotated.body.token).not.toBe(kiosk.body.token);
+    expect((await kioskHttp('/kiosk/punch', kiosk.body.code, kiosk.body.token, badgeCode)).status).toBe(401);
+    expect((await kioskHttp('/kiosk/punch', kiosk.body.code, rotated.body.token, badgeCode)).status).toBe(201);
+  });
+
+  it('generates a unique numeric badge automatically for new employees', async () => {
+    const first = await http('/employees', {
+      method: 'POST',
+      token: adminToken,
+      body: { name: `${prefix} Novo 1` },
+    });
+    const second = await http('/employees', {
+      method: 'POST',
+      token: adminToken,
+      body: { name: `${prefix} Novo 2` },
+    });
+
+    expect(first.status).toBe(201);
+    expect(second.status).toBe(201);
+    expect(first.body.badgeCode).toMatch(/^CR-\d{8}$/);
+    expect(second.body.badgeCode).toMatch(/^CR-\d{8}$/);
+    expect(second.body.badgeCode).not.toBe(first.body.badgeCode);
   });
 
   async function login(email: string, loginPassword: string) {
@@ -136,5 +191,15 @@ describe('access control (e2e)', () => {
       body = text;
     }
     return { status: response.status, body };
+  }
+
+  async function kioskHttp(path: string, code: string, token: string, badgeCode: string): Promise<HttpResult> {
+    const response = await fetch(`${baseUrl}${path}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-kiosk-code': code, 'x-kiosk-token': token },
+      body: JSON.stringify({ badgeCode }),
+    });
+    const text = await response.text();
+    return { status: response.status, body: text ? JSON.parse(text) : null };
   }
 });

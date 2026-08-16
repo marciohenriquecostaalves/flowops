@@ -1,4 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { randomInt } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
@@ -43,6 +44,8 @@ export class EmployeesService {
       throw new BadRequestException('Configure o domínio de e-mail corporativo nas configurações da empresa');
     }
 
+    const badgeCode = await this.nextBadgeCode(tenantId);
+
     const employeeEmail = dto.corporateEmail
       ? await this.nextCorporateEmail(tenantId, dto.name, tenant!.emailDomain!)
       : dto.email;
@@ -52,6 +55,7 @@ export class EmployeesService {
         data: {
           tenantId,
           employeeCode: dto.employeeCode || await this.nextCode(tenantId),
+          badgeCode,
           name: dto.name,
           email: employeeEmail,
           corporateEmail: dto.corporateEmail,
@@ -90,6 +94,7 @@ export class EmployeesService {
       });
       if (!shift) throw new NotFoundException('Turno não pertence à empresa');
     }
+
     let jobTitleName: string | null | undefined;
     if (dto.jobTitleId) {
       const jobTitle = await this.prisma.jobTitle.findFirst({ where: { id: dto.jobTitleId, tenantId, active: true } });
@@ -168,5 +173,14 @@ export class EmployeesService {
       suffix += 1;
     }
     return candidate;
+  }
+
+  private async nextBadgeCode(tenantId: string) {
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      const badgeCode = `CR-${randomInt(10_000_000, 100_000_000)}`;
+      const existing = await this.prisma.employee.findFirst({ where: { tenantId, badgeCode }, select: { id: true } });
+      if (!existing) return badgeCode;
+    }
+    throw new ConflictException('Não foi possível gerar um crachá único. Tente novamente.');
   }
 }

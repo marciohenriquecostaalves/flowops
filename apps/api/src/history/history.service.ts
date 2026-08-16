@@ -67,6 +67,42 @@ export class HistoryService {
     return { items: sessions };
   }
 
+  async punches(tenantId: string, query: HistoryQueryDto, scope: HistoryScope = {}) {
+    const where = this.buildPunchWhere(tenantId, query, scope);
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? 10;
+    const [total, punches] = await Promise.all([
+      this.prisma.productionPunch.count({ where }),
+      this.prisma.productionPunch.findMany({
+        where,
+        select: PUNCH_SELECT,
+        orderBy: { recordedAt: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+    ]);
+
+    return {
+      items: punches,
+      pagination: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / pageSize)),
+      },
+    };
+  }
+
+  async punchesExport(tenantId: string, query: HistoryQueryDto, scope: HistoryScope = {}) {
+    const punches = await this.prisma.productionPunch.findMany({
+      where: this.buildPunchWhere(tenantId, query, scope),
+      select: PUNCH_SELECT,
+      orderBy: { recordedAt: 'desc' },
+      take: 5000,
+    });
+    return { items: punches };
+  }
+
   private buildWhere(tenantId: string, query: HistoryQueryDto, scope: HistoryScope): Prisma.ActivitySessionWhereInput {
     const from = startOfDay(query.from);
     const to = endOfDay(query.to);
@@ -80,6 +116,30 @@ export class HistoryService {
       ...(query.activityId ? { activityId: query.activityId } : {}),
       ...(employeeId ? { employeeId } : {}),
       ...(from || to ? { startedAt: { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) } } : {}),
+    };
+
+    if (departmentId || query.shiftId) {
+      where.employee = {
+        ...(departmentId ? { departmentId } : {}),
+        ...(query.shiftId ? { shiftId: query.shiftId } : {}),
+      };
+    }
+
+    return where;
+  }
+
+  private buildPunchWhere(tenantId: string, query: HistoryQueryDto, scope: HistoryScope): Prisma.ProductionPunchWhereInput {
+    const from = startOfDay(query.from);
+    const to = endOfDay(query.to);
+    if (from && to && from > to) throw new BadRequestException('O período informado é inválido');
+
+    const employeeId = scope.employeeId ?? query.employeeId;
+    const departmentId = scope.departmentId ?? query.departmentId;
+    const where: Prisma.ProductionPunchWhereInput = {
+      tenantId,
+      ...(employeeId ? { employeeId } : {}),
+      ...(query.activityId ? { activityId: query.activityId } : {}),
+      ...(from || to ? { recordedAt: { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) } } : {}),
     };
 
     if (departmentId || query.shiftId) {
@@ -113,6 +173,25 @@ const SESSION_SELECT = {
   },
   activity: { select: { id: true, name: true, code: true } },
 } satisfies Prisma.ActivitySessionSelect;
+
+const PUNCH_SELECT = {
+  id: true,
+  type: true,
+  sequence: true,
+  recordedAt: true,
+  sessionId: true,
+  employee: {
+    select: {
+      id: true,
+      name: true,
+      employeeCode: true,
+      badgeCode: true,
+      department: { select: { id: true, name: true } },
+    },
+  },
+  activity: { select: { id: true, name: true, code: true } },
+  kioskDevice: { select: { id: true, name: true, code: true } },
+} satisfies Prisma.ProductionPunchSelect;
 
 function startOfDay(value?: string) {
   if (!value) return undefined;

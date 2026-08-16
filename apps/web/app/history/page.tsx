@@ -22,6 +22,17 @@ type HistoryItem = {
   activity: { id: string; name: string; code: string };
 };
 type HistoryResponse = { items: HistoryItem[]; pagination: { page: number; pageSize: number; total: number; totalPages: number } };
+type PunchItem = {
+  id: string;
+  type: 'START' | 'PAUSE' | 'RESUME' | 'FINISH';
+  sequence: number;
+  recordedAt: string;
+  sessionId: string;
+  employee: { id: string; name: string; employeeCode: string; badgeCode: string | null; department: Option | null };
+  activity: { id: string; name: string; code: string };
+  kioskDevice: { id: string; name: string; code: string };
+};
+type PunchResponse = { items: PunchItem[]; pagination: { page: number; pageSize: number; total: number; totalPages: number } };
 
 const emptyFilters = { from: defaultFrom, to: defaultTo, departmentId: '', shiftId: '', employeeId: '', activityId: '', status: '' };
 
@@ -33,10 +44,12 @@ export default function HistoryPage() {
   const [shifts, setShifts] = useState<Option[]>([]);
   const [activities, setActivities] = useState<Option[]>([]);
   const [history, setHistory] = useState<HistoryResponse | null>(null);
+  const [punches, setPunches] = useState<PunchResponse | null>(null);
   const [roles, setRoles] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [exporting, setExporting] = useState(false);
+  const [exportingPunches, setExportingPunches] = useState(false);
 
   function auth() {
     const token = localStorage.getItem('flowops_access_token');
@@ -49,15 +62,16 @@ export default function HistoryPage() {
     setLoading(true);
     setError('');
     const query = toQuery(nextFilters, page);
-    const [meResponse, historyResponse] = await Promise.all([
+    const [meResponse, historyResponse, punchesResponse] = await Promise.all([
       fetch(`${API}/auth/me`, { headers }),
       fetch(`${API}/history/sessions?${query}`, { headers }),
+      fetch(`${API}/history/punches?${query}`, { headers }),
     ]);
-    if (meResponse.status === 401 || historyResponse.status === 401) {
+    if (meResponse.status === 401 || historyResponse.status === 401 || punchesResponse.status === 401) {
       localStorage.clear();
       return router.replace('/');
     }
-    if (!historyResponse.ok) {
+    if (!historyResponse.ok || !punchesResponse.ok) {
       setError('Não foi possível carregar o histórico. Verifique seu perfil de acesso.');
       setLoading(false);
       return;
@@ -67,11 +81,30 @@ export default function HistoryPage() {
     const nextRoles = me?.roles ?? [];
     setRoles(nextRoles);
     setHistory(await historyResponse.json());
+    setPunches(await punchesResponse.json());
     setLoading(false);
 
     if (employees.length === 0 && (nextRoles.includes('ADMIN') || nextRoles.includes('SUPERVISOR'))) {
       await loadOptions(headers);
     }
+  }
+
+  async function loadPunches(page: number) {
+    const headers = auth();
+    if (!headers) return router.replace('/');
+    setLoading(true);
+    const response = await fetch(`${API}/history/punches?${toQuery(filters, page)}`, { headers });
+    if (response.status === 401) {
+      localStorage.clear();
+      return router.replace('/');
+    }
+    if (!response.ok) {
+      setError('Não foi possível carregar as batidas do quiosque.');
+      setLoading(false);
+      return;
+    }
+    setPunches(await response.json());
+    setLoading(false);
   }
 
   async function loadOptions(headers: { Authorization: string }) {
@@ -136,6 +169,41 @@ export default function HistoryPage() {
     setExporting(false);
   }
 
+  async function exportPunchesCsv() {
+    const headers = auth();
+    if (!headers) return router.replace('/');
+    setExportingPunches(true);
+    setError('');
+    const response = await fetch(`${API}/history/punches/export?${toQuery(filters, 1)}`, { headers });
+    if (!response.ok) {
+      setError('Não foi possível exportar as batidas do quiosque.');
+      setExportingPunches(false);
+      return;
+    }
+    const data = await response.json() as { items: PunchItem[] };
+    const rows = [
+      ['Data e hora', 'Colaborador', 'Código', 'Crachá', 'Batida', 'Sequência', 'Atividade', 'Quiosque'],
+      ...data.items.map((item) => [
+        formatDateTime(item.recordedAt),
+        item.employee.name,
+        item.employee.employeeCode,
+        item.employee.badgeCode ?? '',
+        punchLabel(item.type),
+        String(item.sequence),
+        `${item.activity.code} · ${item.activity.name}`,
+        `${item.kioskDevice.code} · ${item.kioskDevice.name}`,
+      ]),
+    ];
+    const content = rows.map((row) => row.map((value) => `"${value.replaceAll('"', '""')}"`).join(';')).join('\n');
+    const url = URL.createObjectURL(new Blob([content], { type: 'text/csv;charset=utf-8' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `flowops-batidas-${filters.from}-${filters.to}.csv`;
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 500);
+    setExportingPunches(false);
+  }
+
   if (loading && !history) return <main className="container">Carregando histórico...</main>;
   const pagination = history?.pagination;
   const isRestricted = roles.includes('OPERATOR') || roles.includes('FOREMAN');
@@ -157,6 +225,12 @@ export default function HistoryPage() {
       {history?.items.length === 0 ? <p className="muted">Não há sessões para os filtros selecionados.</p> : <div className="table-wrap"><table className="history-table"><thead><tr><th>Colaborador</th><th>Atividade</th><th>Início</th><th>Fim</th><th>Tempos</th><th>Unidades</th><th>Status</th></tr></thead><tbody>{history?.items.map((item) => <tr key={item.id}><td><strong>{item.employee.name}</strong><small>{item.employee.employeeCode} · {item.employee.department?.name ?? 'Sem departamento'}</small></td><td><strong>{item.activity.code}</strong><small>{item.activity.name}</small></td><td>{formatDateTime(item.startedAt)}</td><td>{item.endedAt ? formatDateTime(item.endedAt) : 'Em andamento'}</td><td><strong>{formatDuration(item.productiveSeconds)}</strong><small>pausa {formatDuration(item.pausedSeconds)}</small></td><td>{item.units} un.</td><td><span className={`history-status history-status-${item.status.toLowerCase()}`}>{statusLabel(item.status)}</span></td></tr>)}</tbody></table></div>}
       {pagination && <div className="pagination history-pagination"><button className="btn btn-secondary" disabled={pagination.page <= 1 || loading} onClick={() => void load(filters, pagination.page - 1)}>Anterior</button><span>Página {pagination.page} de {pagination.totalPages}</span><button className="btn btn-secondary" disabled={pagination.page >= pagination.totalPages || loading} onClick={() => void load(filters, pagination.page + 1)}>Próxima</button></div>}
     </section>
+
+    <section className="card history-punch-card">
+      <div className="report-heading history-heading"><div><h2>Batidas dos quiosques</h2><p className="muted">{punches?.pagination.total ?? 0} batida(s) encontrada(s).</p></div><button className="btn btn-secondary" type="button" onClick={exportPunchesCsv} disabled={exportingPunches}>{exportingPunches ? 'Exportando...' : 'Exportar batidas'}</button></div>
+      {punches?.items.length === 0 ? <p className="muted">Não há batidas para os filtros selecionados.</p> : <div className="table-wrap"><table className="history-table"><thead><tr><th>Data e hora</th><th>Colaborador</th><th>Batida</th><th>Atividade</th><th>Quiosque</th><th>Sequência</th></tr></thead><tbody>{punches?.items.map((item) => <tr key={item.id}><td>{formatDateTime(item.recordedAt)}</td><td><strong>{item.employee.name}</strong><small>{item.employee.employeeCode} · {item.employee.badgeCode ?? 'Sem crachá'}</small></td><td><span className={`punch-type punch-type-${item.type.toLowerCase()}`}>{punchLabel(item.type)}</span></td><td><strong>{item.activity.code}</strong><small>{item.activity.name}</small></td><td><strong>{item.kioskDevice.code}</strong><small>{item.kioskDevice.name}</small></td><td>{item.sequence} de 4</td></tr>)}</tbody></table></div>}
+      {punches?.pagination && <div className="pagination history-pagination"><button className="btn btn-secondary" disabled={punches.pagination.page <= 1 || loading} onClick={() => void loadPunches(punches.pagination.page - 1)}>Anterior</button><span>Página {punches.pagination.page} de {punches.pagination.totalPages}</span><button className="btn btn-secondary" disabled={punches.pagination.page >= punches.pagination.totalPages || loading} onClick={() => void loadPunches(punches.pagination.page + 1)}>Próxima</button></div>}
+    </section>
   </AppShell>;
 }
 
@@ -173,3 +247,5 @@ function formatDateTime(value: string) { return new Intl.DateTimeFormat('pt-BR',
 function formatDuration(seconds: number) { const hours = Math.floor(seconds / 3600); const minutes = Math.floor((seconds % 3600) / 60); const rest = seconds % 60; return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(rest).padStart(2, '0')}`; }
 
 function statusLabel(status: HistoryItem['status']) { return ({ RUNNING: 'Em andamento', PAUSED: 'Pausada', COMPLETED: 'Concluída', CANCELLED: 'Cancelada' })[status]; }
+
+function punchLabel(type: PunchItem['type']) { return ({ START: 'Início', PAUSE: 'Pausa', RESUME: 'Retomada', FINISH: 'Finalização' })[type]; }

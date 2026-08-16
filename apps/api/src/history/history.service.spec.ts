@@ -5,6 +5,7 @@ describe('HistoryService', () => {
   const prisma = {
     employee: { findFirst: jest.fn() },
     activitySession: { count: jest.fn(), findMany: jest.fn() },
+    productionPunch: { count: jest.fn(), findMany: jest.fn() },
   };
   const service = new HistoryService(prisma as any);
 
@@ -32,5 +33,15 @@ describe('HistoryService', () => {
 
   it('rejects an inverted date range', async () => {
     await expect(service.list('tenant-a', { from: '2026-08-20', to: '2026-08-01' } as any)).rejects.toThrow('período informado é inválido');
+  });
+
+  it('returns paginated kiosk punches', async () => {
+    prisma.productionPunch.count.mockResolvedValue(11);
+    prisma.productionPunch.findMany.mockResolvedValue([]);
+    const result = await service.punches('tenant-a', { from: '2026-08-01', to: '2026-08-15', page: 2, pageSize: 5 } as any, { departmentId: 'department-a' });
+
+    expect(result.pagination).toEqual({ page: 2, pageSize: 5, total: 11, totalPages: 3 });
+    expect(prisma.productionPunch.count).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ employee: { departmentId: 'department-a' } }) }));
+    expect(prisma.productionPunch.findMany).toHaveBeenCalledWith(expect.objectContaining({ skip: 5, take: 5 }));
   });
 });

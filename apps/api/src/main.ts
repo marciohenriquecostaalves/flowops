@@ -24,15 +24,17 @@ export async function createApp() {
     }),
   );
 
-  const swaggerConfig = new DocumentBuilder()
-    .setTitle('FlowOps API')
-    .setDescription('API da plataforma FlowOps')
-    .setVersion('0.1.0')
-    .addBearerAuth()
-    .build();
+  if (process.env.NODE_ENV !== 'production') {
+    const swaggerConfig = new DocumentBuilder()
+      .setTitle('FlowOps API')
+      .setDescription('API da plataforma FlowOps')
+      .setVersion('0.1.0')
+      .addBearerAuth()
+      .build();
 
-  const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('api/docs', app, document);
+    const document = SwaggerModule.createDocument(app, swaggerConfig);
+    SwaggerModule.setup('api/docs', app, document);
+  }
 
   return app;
 }
