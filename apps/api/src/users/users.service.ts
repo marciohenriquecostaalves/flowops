@@ -11,13 +11,14 @@ export class UsersService {
   async list(tenantId: string) {
     return this.prisma.user.findMany({
       where: { tenantId, status: 'ACTIVE' },
-      select: { id: true, name: true, email: true, status: true, createdAt: true, updatedAt: true, accessAreas: true, employee: { select: { id: true, name: true, employeeCode: true } }, roles: { select: { role: { select: { name: true } } } } },
+      select: { id: true, name: true, email: true, status: true, createdAt: true, updatedAt: true, accessAreas: true, employee: { select: { id: true, name: true, employeeCode: true } }, roles: { select: { role: { select: { name: true } } } }, unitAccess: { select: { unit: { select: { id: true, code: true, name: true } }, isPrimary: true } } },
       orderBy: { name: 'asc' },
     });
   }
 
   async create(tenantId: string, actorId: string, dto: CreateUserDto) {
     const role = await this.roleForTenant(tenantId, dto.role);
+    const primaryUnit = await this.primaryUnitForTenant(tenantId);
     if (['OPERATOR', 'FOREMAN'].includes(dto.role) && !dto.employeeId) throw new ConflictException(`Associe um colaborador ao usuário ${dto.role === 'FOREMAN' ? 'Encarregado' : 'Operador'}`);
     if (dto.employeeId) await this.employeeAvailable(tenantId, dto.employeeId);
     if (dto.role === 'FOREMAN') await this.ensureEmployeeDepartment(tenantId, dto.employeeId!);
@@ -25,6 +26,7 @@ export class UsersService {
     if (existing?.status === 'SUSPENDED') {
       const user = await this.prisma.$transaction(async (tx) => {
         await tx.userRole.deleteMany({ where: { userId: existing.id } });
+        await tx.userUnitAccess.upsert({ where: { userId_unitId: { userId: existing.id, unitId: primaryUnit.id } }, update: { isPrimary: true }, create: { userId: existing.id, unitId: primaryUnit.id, isPrimary: true } });
         return tx.user.update({
           where: { id: existing.id },
           data: { name: dto.name, passwordHash: hashPassword(dto.password), status: 'ACTIVE', refreshTokenHash: null, accessAreas: dto.accessAreas ?? defaultAccessAreas(dto.role), ...(dto.employeeId ? { employee: { connect: { id: dto.employeeId } } } : {}), roles: { create: { roleId: role.id } } },
@@ -37,7 +39,7 @@ export class UsersService {
     if (existing) throw new ConflictException('Já existe um usuário com este e-mail nesta empresa');
     try {
       const user = await this.prisma.user.create({
-        data: { tenantId, name: dto.name, email: dto.email.toLowerCase(), passwordHash: hashPassword(dto.password), accessAreas: dto.accessAreas ?? defaultAccessAreas(dto.role), ...(dto.employeeId ? { employee: { connect: { id: dto.employeeId } } } : {}), roles: { create: { roleId: role.id } } },
+        data: { tenantId, name: dto.name, email: dto.email.toLowerCase(), passwordHash: hashPassword(dto.password), accessAreas: dto.accessAreas ?? defaultAccessAreas(dto.role), ...(dto.employeeId ? { employee: { connect: { id: dto.employeeId } } } : {}), roles: { create: { roleId: role.id } }, unitAccess: { create: { unitId: primaryUnit.id, isPrimary: true } } },
         select: { id: true, name: true, email: true, status: true, createdAt: true, accessAreas: true, roles: { select: { role: { select: { name: true } } } } },
       });
       await this.audit(tenantId, actorId, 'USER_CREATED', user.id, { role: dto.role });
@@ -99,6 +101,20 @@ export class UsersService {
     return { ok: true };
   }
 
+  async updateUnits(tenantId: string, actorId: string, id: string, unitIds: string[]) {
+    const user = await this.userForTenant(tenantId, id);
+    const uniqueUnitIds = [...new Set(unitIds)];
+    const units = await this.prisma.businessUnit.findMany({ where: { tenantId, id: { in: uniqueUnitIds }, active: true }, select: { id: true } });
+    if (units.length !== uniqueUnitIds.length) throw new NotFoundException('Uma ou mais filiais não pertencem à empresa ou estão inativas');
+    await this.prisma.$transaction(async (tx) => {
+      await tx.userUnitAccess.deleteMany({ where: { userId: id } });
+      await tx.userUnitAccess.createMany({ data: uniqueUnitIds.map((unitId, index) => ({ userId: id, unitId, isPrimary: index === 0 })) });
+      await tx.user.update({ where: { id }, data: { refreshTokenHash: null } });
+    });
+    await this.audit(tenantId, actorId, 'USER_UNITS_UPDATED', id, { before: user.unitAccess?.map((access) => access.unitId) ?? [], units: uniqueUnitIds });
+    return this.prisma.user.findUnique({ where: { id }, select: { id: true, unitAccess: { select: { unit: { select: { id: true, code: true, name: true } }, isPrimary: true } } } });
+  }
+
   async revokeEmployeeAccess(tenantId: string, actorId: string, employeeId: string) {
     const employee = await this.prisma.employee.findFirst({ where: { id: employeeId, tenantId } });
     if (!employee) throw new NotFoundException('Colaborador não encontrado');
@@ -120,7 +136,7 @@ export class UsersService {
   }
 
   private async userForTenant(tenantId: string, id: string) {
-    const user = await this.prisma.user.findFirst({ where: { id, tenantId }, include: { employee: true, roles: { include: { role: true } } } });
+    const user = await this.prisma.user.findFirst({ where: { id, tenantId }, include: { employee: true, roles: { include: { role: true } }, unitAccess: true } });
     if (!user) throw new NotFoundException('Usuário não pertence à empresa');
     return user;
   }
@@ -144,6 +160,12 @@ export class UsersService {
   private async ensureEmployeeDepartment(tenantId: string, employeeId: string) {
     const employee = await this.prisma.employee.findFirst({ where: { id: employeeId, tenantId }, select: { departmentId: true } });
     if (!employee?.departmentId) throw new ConflictException('Associe o encarregado a um colaborador com departamento definido');
+  }
+
+  private async primaryUnitForTenant(tenantId: string) {
+    const unit = await this.prisma.businessUnit.findFirst({ where: { tenantId, type: 'HEADQUARTERS', active: true }, orderBy: { createdAt: 'asc' } });
+    if (unit) return unit;
+    return this.prisma.businessUnit.create({ data: { tenantId, code: 'MATRIZ', name: 'Matriz', type: 'HEADQUARTERS' } });
   }
 
   private audit(tenantId: string, userId: string, action: string, entityId: string, metadata?: object) {

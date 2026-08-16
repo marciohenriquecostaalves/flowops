@@ -1,23 +1,27 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateShiftDto } from './dto/create-shift.dto';
 import { UpdateShiftDto } from './dto/update-shift.dto';
+import { canAccessUnit, scopedUnitWhere } from '../auth/unit-scope';
 
 @Injectable()
 export class ShiftsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  list(tenantId: string) {
+  list(tenantId: string, roles: string[] = [], unitIds: string[] = [], selectedUnitId?: string) {
     return this.prisma.shift.findMany({
-      where: { tenantId },
-      include: { _count: { select: { employees: true } } },
+      where: scopedUnitWhere(tenantId, roles, unitIds, selectedUnitId),
+      include: { unit: { select: { id: true, code: true, name: true } }, _count: { select: { employees: true } } },
       orderBy: { name: 'asc' },
     });
   }
 
-  async create(tenantId: string, actorUserId: string, dto: CreateShiftDto) {
+  async create(tenantId: string, actorUserId: string, dto: CreateShiftDto, roles: string[] = [], unitIds: string[] = [], primaryUnitId?: string) {
+    const unitId = dto.unitId ?? primaryUnitId;
+    if (!unitId || !canAccessUnit(roles, unitIds, unitId)) throw new ForbiddenException('Selecione uma filial permitida');
+    if (!await this.prisma.businessUnit.findFirst({ where: { id: unitId, tenantId, active: true } })) throw new NotFoundException('Filial não pertence à empresa ou está inativa');
     try {
-      const shift = await this.prisma.shift.create({ data: { tenantId, ...dto } });
+      const shift = await this.prisma.shift.create({ data: { tenantId, unitId, name: dto.name, startTime: dto.startTime, endTime: dto.endTime, toleranceMinutes: dto.toleranceMinutes } });
       await this.audit(tenantId, actorUserId, 'SHIFT_CREATED', shift.id, { name: shift.name });
       return shift;
     } catch {
@@ -25,9 +29,15 @@ export class ShiftsService {
     }
   }
 
-  async update(tenantId: string, actorUserId: string, id: string, dto: UpdateShiftDto) {
-    const shift = await this.prisma.shift.findFirst({ where: { id, tenantId } });
+  async update(tenantId: string, actorUserId: string, id: string, dto: UpdateShiftDto, roles: string[] = [], unitIds: string[] = [], selectedUnitId?: string) {
+    const shift = await this.prisma.shift.findFirst({ where: { id, ...scopedUnitWhere(tenantId, roles, unitIds, selectedUnitId) } });
     if (!shift) throw new NotFoundException('Turno não pertence à empresa');
+    if (dto.unitId && dto.unitId !== shift.unitId) {
+      if (!canAccessUnit(roles, unitIds, dto.unitId)) throw new ForbiddenException('Filial não permitida');
+      if (!await this.prisma.businessUnit.findFirst({ where: { id: dto.unitId, tenantId, active: true } })) throw new NotFoundException('Filial não pertence à empresa ou está inativa');
+      const linked = await this.prisma.shift.findUnique({ where: { id }, include: { _count: { select: { employees: true } } } });
+      if (linked && linked._count.employees) throw new ConflictException('Não é possível mover um turno com colaboradores vinculados');
+    }
 
     try {
       const updated = await this.prisma.shift.update({ where: { id }, data: dto });

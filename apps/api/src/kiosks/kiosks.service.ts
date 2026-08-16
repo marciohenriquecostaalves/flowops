@@ -31,12 +31,14 @@ export class KiosksService {
         id: true,
         tenantId: true,
         activityId: true,
+        unitId: true,
         name: true,
         code: true,
         active: true,
         createdAt: true,
         updatedAt: true,
         activity: { select: { id: true, name: true, code: true } },
+        unit: { select: { id: true, code: true, name: true } },
       },
       orderBy: { name: 'asc' },
     });
@@ -45,7 +47,7 @@ export class KiosksService {
   async create(tenantId: string, actorUserId: string, dto: CreateKioskDto) {
     const activity = await this.prisma.activity.findFirst({
       where: { id: dto.activityId, tenantId, status: 'ACTIVE' },
-      select: { id: true, name: true, code: true },
+      select: { id: true, name: true, code: true, unitId: true },
     });
     if (!activity) throw new NotFoundException('Atividade ativa não encontrada');
 
@@ -57,12 +59,13 @@ export class KiosksService {
     const kiosk = await this.prisma.kioskDevice.create({
       data: {
         tenantId,
+        unitId: activity.unitId,
         activityId: activity.id,
         name: dto.name.trim(),
         code,
         secretHash: hashToken(token),
       },
-      include: { activity: { select: { id: true, name: true, code: true } } },
+      include: { activity: { select: { id: true, name: true, code: true } }, unit: { select: { id: true, code: true, name: true } } },
     });
     await this.audit(tenantId, actorUserId, 'KIOSK_CREATED', kiosk.id, { name: kiosk.name, code: kiosk.code, activity: activity.name });
     return {
@@ -75,6 +78,7 @@ export class KiosksService {
       createdAt: kiosk.createdAt,
       updatedAt: kiosk.updatedAt,
       activity: kiosk.activity,
+      unit: kiosk.unit,
       token,
     };
   }
@@ -83,19 +87,21 @@ export class KiosksService {
     const kiosk = await this.prisma.kioskDevice.findFirst({ where: { id, tenantId } });
     if (!kiosk) throw new NotFoundException('Quiosque não encontrado');
 
+    let activityUnitId: string | null = kiosk.unitId;
     if (dto.activityId) {
-      const activity = await this.prisma.activity.findFirst({ where: { id: dto.activityId, tenantId, status: 'ACTIVE' }, select: { id: true } });
+      const activity = await this.prisma.activity.findFirst({ where: { id: dto.activityId, tenantId, status: 'ACTIVE' }, select: { id: true, unitId: true } });
       if (!activity) throw new NotFoundException('Atividade ativa não encontrada');
+      activityUnitId = activity.unitId;
     }
 
     const updated = await this.prisma.kioskDevice.update({
       where: { id },
       data: {
         ...(dto.name !== undefined ? { name: dto.name.trim() } : {}),
-        ...(dto.activityId !== undefined ? { activityId: dto.activityId } : {}),
+        ...(dto.activityId !== undefined ? { activityId: dto.activityId, unitId: activityUnitId } : {}),
         ...(dto.active !== undefined ? { active: dto.active } : {}),
       },
-      include: { activity: { select: { id: true, name: true, code: true } } },
+      include: { activity: { select: { id: true, name: true, code: true } }, unit: { select: { id: true, code: true, name: true } } },
     });
     await this.audit(tenantId, actorUserId, 'KIOSK_UPDATED', id, { name: updated.name, code: updated.code, active: updated.active, activity: updated.activity.name });
     return {
@@ -108,13 +114,14 @@ export class KiosksService {
       createdAt: updated.createdAt,
       updatedAt: updated.updatedAt,
       activity: updated.activity,
+      unit: updated.unit,
     };
   }
 
   async rotateToken(tenantId: string, actorUserId: string, id: string) {
     const kiosk = await this.prisma.kioskDevice.findFirst({
       where: { id, tenantId },
-      include: { activity: { select: { id: true, name: true, code: true } } },
+      include: { activity: { select: { id: true, name: true, code: true } }, unit: { select: { id: true, code: true, name: true } } },
     });
     if (!kiosk) throw new NotFoundException('Quiosque não encontrado');
 
@@ -157,7 +164,7 @@ export class KiosksService {
 
     const normalizedBadge = badgeCode.trim().toUpperCase();
     const employee = await this.prisma.employee.findFirst({
-      where: { tenantId: kiosk.tenantId, badgeCode: normalizedBadge, status: 'ACTIVE' },
+      where: { tenantId: kiosk.tenantId, unitId: kiosk.unitId ?? '__no_unit__', badgeCode: normalizedBadge, status: 'ACTIVE' },
       include: { department: true, shift: true },
     });
     if (!employee) throw new NotFoundException('Crachá não encontrado ou colaborador inativo');
@@ -196,6 +203,7 @@ export class KiosksService {
           updatedSession = await tx.activitySession.create({
             data: {
               tenantId: kiosk.tenantId,
+              unitId: kiosk.unitId,
               employeeId: employee.id,
               activityId: kiosk.activityId,
               status: 'RUNNING',
@@ -230,6 +238,7 @@ export class KiosksService {
         const punch = await tx.productionPunch.create({
           data: {
             tenantId: kiosk.tenantId,
+            unitId: kiosk.unitId,
             employeeId: employee.id,
             kioskDeviceId: kiosk.id,
             activityId: kiosk.activityId,
@@ -242,6 +251,7 @@ export class KiosksService {
         await tx.auditLog.create({
           data: {
             tenantId: kiosk.tenantId,
+            unitId: kiosk.unitId,
             action: `PRODUCTION_PUNCH_${type}`,
             entity: 'PRODUCTION_PUNCH',
             entityId: punch.id,

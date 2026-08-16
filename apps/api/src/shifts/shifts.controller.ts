@@ -8,6 +8,7 @@ import { AccessAreasGuard } from '../auth/access-areas.guard';
 import { CreateShiftDto } from './dto/create-shift.dto';
 import { UpdateShiftDto } from './dto/update-shift.dto';
 import { ShiftsService } from './shifts.service';
+import { selectedUnitId as getSelectedUnitId } from '../auth/unit-scope';
 
 @ApiTags('shifts')
 @ApiBearerAuth()
@@ -20,16 +21,16 @@ export class ShiftsController {
 
   @Get()
   list(@Req() req: any) {
-    return this.service.list(req.user.tenantId);
+    return this.service.list(req.user.tenantId, req.user.roles, req.user.unitIds, getSelectedUnitId(req));
   }
 
   @Post()
   create(@Req() req: any, @Body() dto: CreateShiftDto) {
-    return this.service.create(req.user.tenantId, req.user.sub, dto);
+    return this.service.create(req.user.tenantId, req.user.sub, dto, req.user.roles, req.user.unitIds, req.user.primaryUnitId);
   }
 
   @Patch(':id')
   update(@Req() req: any, @Param('id') id: string, @Body() dto: UpdateShiftDto) {
-    return this.service.update(req.user.tenantId, req.user.sub, id, dto);
+    return this.service.update(req.user.tenantId, req.user.sub, id, dto, req.user.roles, req.user.unitIds, getSelectedUnitId(req));
   }
 }

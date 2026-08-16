@@ -2,21 +2,23 @@ import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/com
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { HistoryQueryDto } from './dto/history-query.dto';
+import { effectiveUnitIds, scopedUnitWhere } from '../auth/unit-scope';
 
-type HistoryScope = { employeeId?: string; departmentId?: string };
+type HistoryScope = { employeeId?: string; departmentId?: string; unitIds?: string[] };
 
 @Injectable()
 export class HistoryService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async scopeForUser(tenantId: string, userId: string, roles: string[]): Promise<HistoryScope> {
+  async scopeForUser(tenantId: string, userId: string, roles: string[], unitIds: string[] = [], selectedUnitId?: string): Promise<HistoryScope> {
+    const scopedIds = effectiveUnitIds(roles, unitIds, selectedUnitId) ?? unitIds;
     if (roles.includes('FOREMAN')) {
       const employee = await this.prisma.employee.findFirst({
         where: { tenantId, userId },
         select: { departmentId: true },
       });
       if (!employee?.departmentId) throw new ForbiddenException('Encarregado precisa estar vinculado a um departamento');
-      return { departmentId: employee.departmentId };
+      return { departmentId: employee.departmentId, unitIds: scopedIds };
     }
 
     if (roles.includes('OPERATOR')) {
@@ -25,10 +27,10 @@ export class HistoryService {
         select: { id: true },
       });
       if (!employee) throw new ForbiddenException('Operador precisa estar vinculado a um colaborador');
-      return { employeeId: employee.id };
+      return { employeeId: employee.id, unitIds: scopedIds };
     }
 
-    return {};
+    return roles.includes('ADMIN') && selectedUnitId === undefined ? {} : { unitIds: scopedIds };
   }
 
   async list(tenantId: string, query: HistoryQueryDto, scope: HistoryScope = {}) {
@@ -111,7 +113,7 @@ export class HistoryService {
     const employeeId = scope.employeeId ?? query.employeeId;
     const departmentId = scope.departmentId ?? query.departmentId;
     const where: Prisma.ActivitySessionWhereInput = {
-      tenantId,
+      ...scopedUnitWhere(tenantId, scope.unitIds ? ['SCOPED'] : ['ADMIN'], scope.unitIds ?? []),
       ...(query.status ? { status: query.status } : {}),
       ...(query.activityId ? { activityId: query.activityId } : {}),
       ...(employeeId ? { employeeId } : {}),
@@ -136,7 +138,7 @@ export class HistoryService {
     const employeeId = scope.employeeId ?? query.employeeId;
     const departmentId = scope.departmentId ?? query.departmentId;
     const where: Prisma.ProductionPunchWhereInput = {
-      tenantId,
+      ...scopedUnitWhere(tenantId, scope.unitIds ? ['SCOPED'] : ['ADMIN'], scope.unitIds ?? []),
       ...(employeeId ? { employeeId } : {}),
       ...(query.activityId ? { activityId: query.activityId } : {}),
       ...(from || to ? { recordedAt: { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) } } : {}),

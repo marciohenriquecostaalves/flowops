@@ -15,6 +15,7 @@ export async function createApp() {
   app.enableCors({
     origin: process.env.CORS_ORIGIN ?? 'http://localhost:3000',
     credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-FlowOps-Unit-Id'],
   });
   app.useGlobalPipes(
     new ValidationPipe({

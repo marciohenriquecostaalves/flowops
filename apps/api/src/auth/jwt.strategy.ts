@@ -9,6 +9,8 @@ export type JwtPayload = {
   tenantId: string;
   roles: string[];
   accessAreas?: string[];
+  unitIds?: string[];
+  primaryUnitId?: string | null;
 };
 
 @Injectable()
@@ -33,6 +35,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         id: true,
         accessAreas: true,
         roles: { select: { role: { select: { name: true } } } },
+        unitAccess: { select: { unitId: true, isPrimary: true } },
       },
     });
     if (!user) throw new UnauthorizedException('Sessão inválida ou expirada');
@@ -41,6 +44,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       ...payload,
       roles,
       accessAreas: user.accessAreas.length ? user.accessAreas : defaultAccessAreas(roles[0] ?? ''),
+      ...(user.unitAccess ? {
+        unitIds: user.unitAccess.map((access) => access.unitId),
+        primaryUnitId: user.unitAccess.find((access) => access.isPrimary)?.unitId ?? user.unitAccess[0]?.unitId ?? null,
+      } : {}),
     };
   }
 }

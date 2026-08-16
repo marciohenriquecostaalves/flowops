@@ -3,10 +3,12 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
+import { authFetch, refreshAccessToken } from '../lib/auth';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api';
 
 type NavItem = { href: string; area?: string; areas?: string[]; label: string; icon: string; roles: string[] };
+type Unit = { id: string; code: string; name: string; isPrimary?: boolean };
 
 const items: NavItem[] = [
   { href: '/dashboard', area: 'dashboard', label: 'Visão geral', icon: '▦', roles: ['ADMIN', 'SUPERVISOR', 'OPERATOR', 'FOREMAN'] },
@@ -18,6 +20,7 @@ const items: NavItem[] = [
   { href: '/activities', area: 'activities', label: 'Atividades', icon: '✓', roles: ['ADMIN', 'SUPERVISOR'] },
   { href: '/reports', area: 'reports', label: 'Relatórios', icon: '▥', roles: ['ADMIN', 'SUPERVISOR', 'FOREMAN'] },
   { href: '/history', areas: ['operations', 'reports'], label: 'Histórico', icon: '◷', roles: ['ADMIN', 'SUPERVISOR', 'OPERATOR', 'FOREMAN'] },
+  { href: '/business-units', area: 'businessUnits', label: 'Matriz e filiais', icon: '⌂', roles: ['ADMIN', 'SUPERVISOR'] },
 ];
 
 function canAccess(item: NavItem, roles: string[], accessAreas: string[]) {
@@ -38,21 +41,42 @@ export function AppShell({ title, subtitle, children }: AppShellProps) {
   const [roles, setRoles] = useState<string[]>([]);
   const [accessAreas, setAccessAreas] = useState<string[]>([]);
   const [permissionsLoaded, setPermissionsLoaded] = useState(false);
+  const [units, setUnits] = useState<Unit[]>([]);
+  const [selectedUnitId, setSelectedUnitId] = useState('');
 
   useEffect(() => {
     const token = localStorage.getItem('flowops_access_token');
     if (!token) return router.replace('/');
 
-    fetch(`${API}/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
+    authFetch(`${API}/auth/me`)
       .then((response) => response.ok ? response.json() : null)
-      .then((user) => { setRoles(user?.roles ?? []); setAccessAreas(user?.accessAreas ?? []); setPermissionsLoaded(true); })
+      .then((user) => {
+        setRoles(user?.roles ?? []);
+        setAccessAreas(user?.accessAreas ?? []);
+        const availableUnits = (user?.units ?? []) as Unit[];
+        setUnits(availableUnits);
+        const stored = localStorage.getItem('flowops_selected_unit_id');
+        const selected = availableUnits.find((unit) => unit.id === stored) ?? availableUnits.find((unit) => unit.isPrimary) ?? availableUnits[0];
+        if (selected) {
+          setSelectedUnitId(selected.id);
+          if (stored !== selected.id) {
+            localStorage.setItem('flowops_selected_unit_id', selected.id);
+            window.location.reload();
+          }
+        } else {
+          localStorage.removeItem('flowops_selected_unit_id');
+        }
+        setPermissionsLoaded(true);
+      })
       .catch(() => undefined);
-    fetch(`${API}/settings`, { headers: { Authorization: `Bearer ${token}` } })
+    authFetch(`${API}/settings`)
       .then((response) => response.ok ? response.json() : null)
       .then((settings) => {
         if (settings?.name) setCompanyName(settings.name);
       })
       .catch(() => undefined);
+    const refreshTimer = window.setInterval(() => { void refreshAccessToken(); }, 10 * 60 * 1000);
+    return () => window.clearInterval(refreshTimer);
   }, [router]);
 
   useEffect(() => {
@@ -68,6 +92,12 @@ export function AppShell({ title, subtitle, children }: AppShellProps) {
   function logout() {
     localStorage.clear();
     router.replace('/');
+  }
+
+  function changeUnit(unitId: string) {
+    setSelectedUnitId(unitId);
+    localStorage.setItem('flowops_selected_unit_id', unitId);
+    window.location.reload();
   }
 
   return (
@@ -91,7 +121,11 @@ export function AppShell({ title, subtitle, children }: AppShellProps) {
       <div className="app-workspace">
         <header className="app-topbar">
           <div><p className="page-kicker">{companyName}</p><h1>{title}</h1><p className="muted">{subtitle}</p></div>
-          <div className="topbar-user"><span className="topbar-avatar">{initials}</span><span>{companyName}</span></div>
+          <div className="topbar-context">
+            {units.length > 1 && <label className="unit-switcher"><span>Unidade ativa</span><select value={selectedUnitId} onChange={(event) => changeUnit(event.target.value)} aria-label="Selecionar unidade ativa">{units.map((unit) => <option key={unit.id} value={unit.id}>{unit.code} · {unit.name}</option>)}</select></label>}
+            {units.length === 1 && <span className="unit-current"><small>Unidade</small><strong>{units[0].code} · {units[0].name}</strong></span>}
+            <div className="topbar-user"><span className="topbar-avatar">{initials}</span><span>{companyName}</span></div>
+          </div>
         </header>
         <main className="app-content">{children}</main>
       </div>

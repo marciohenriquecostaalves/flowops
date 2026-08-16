@@ -17,6 +17,7 @@ function emailAliasPreview(name: string) {
 type Department = { id: string; name: string };
 type Shift = { id: string; name: string; startTime: string; endTime: string; active: boolean };
 type JobTitle = { id: string; name: string; active: boolean };
+type BusinessUnit = { id: string; name: string; code: string; active: boolean };
 type EmailConfig = { usesOwnEmailDomain: boolean; emailDomain: string | null };
 type Employee = {
   id: string;
@@ -32,6 +33,7 @@ type Employee = {
   status: string;
   department: Department | null;
   shift: Shift | null;
+  unit: BusinessUnit | null;
   userId: string | null;
 };
 
@@ -41,6 +43,7 @@ export default function EmployeesPage() {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [jobTitles, setJobTitles] = useState<JobTitle[]>([]);
+  const [units, setUnits] = useState<BusinessUnit[]>([]);
   const [emailConfig, setEmailConfig] = useState<EmailConfig>({ usesOwnEmailDomain: false, emailDomain: null });
   const [employeeCode, setEmployeeCode] = useState('');
   const [name, setName] = useState('');
@@ -50,6 +53,7 @@ export default function EmployeesPage() {
   const [photo, setPhoto] = useState<File | null>(null);
   const [departmentId, setDepartmentId] = useState('');
   const [shiftId, setShiftId] = useState('');
+  const [unitId, setUnitId] = useState('');
   const [status, setStatus] = useState('ACTIVE');
   const [editing, setEditing] = useState<Employee | null>(null);
   const [loading, setLoading] = useState(true);
@@ -62,22 +66,24 @@ export default function EmployeesPage() {
 
   const headers = () => {
     const token = localStorage.getItem('flowops_access_token');
-    return token ? { Authorization: `Bearer ${token}` } : null;
+    const selectedUnitId = localStorage.getItem('flowops_selected_unit_id');
+    return token ? { Authorization: `Bearer ${token}`, ...(selectedUnitId ? { 'X-FlowOps-Unit-Id': selectedUnitId } : {}) } : null;
   };
 
   async function load() {
     const authorization = headers();
     if (!authorization) return router.replace('/');
 
-    const [employeesResponse, departmentsResponse, shiftsResponse, jobTitlesResponse, emailConfigResponse] = await Promise.all([
+    const [employeesResponse, departmentsResponse, shiftsResponse, jobTitlesResponse, emailConfigResponse, unitsResponse] = await Promise.all([
       fetch(`${API}/employees`, { headers: authorization }),
       fetch(`${API}/departments`, { headers: authorization }),
       fetch(`${API}/shifts`, { headers: authorization }),
       fetch(`${API}/job-titles`, { headers: authorization }),
       fetch(`${API}/settings/email-domain`, { headers: authorization }),
+      fetch(`${API}/business-units`, { headers: authorization }),
     ]);
 
-    if (!employeesResponse.ok || !departmentsResponse.ok || !shiftsResponse.ok || !jobTitlesResponse.ok || !emailConfigResponse.ok) {
+    if (!employeesResponse.ok || !departmentsResponse.ok || !shiftsResponse.ok || !jobTitlesResponse.ok || !emailConfigResponse.ok || !unitsResponse.ok) {
       localStorage.clear();
       return router.replace('/');
     }
@@ -87,6 +93,10 @@ export default function EmployeesPage() {
     setShifts((await shiftsResponse.json()).filter((shift: Shift) => shift.active));
     setJobTitles((await jobTitlesResponse.json()).filter((jobTitle: JobTitle) => jobTitle.active));
     setEmailConfig(await emailConfigResponse.json());
+    const nextUnits = (await unitsResponse.json()).filter((unit: BusinessUnit) => unit.active);
+    setUnits(nextUnits);
+    const selectedUnitId = localStorage.getItem('flowops_selected_unit_id');
+    if (!unitId && nextUnits[0]) setUnitId(nextUnits.find((unit: BusinessUnit) => unit.id === selectedUnitId)?.id ?? nextUnits[0].id);
     const me = await fetch(`${API}/auth/me`, { headers: authorization }); if (me.ok) setIsAdmin((await me.json()).roles.includes('ADMIN'));
     setLoading(false);
   }
@@ -126,6 +136,7 @@ export default function EmployeesPage() {
     if (jobTitleId || editing) form.append('jobTitleId', jobTitleId);
     if (departmentId || editing) form.append('departmentId', departmentId);
     if (shiftId || editing) form.append('shiftId', shiftId);
+    if (unitId) form.append('unitId', unitId);
     if (!editing && employeeCode.trim()) form.append('employeeCode', employeeCode.trim());
     if (editing) form.append('status', status);
     if (photo) form.append('photo', photo);
@@ -152,6 +163,7 @@ export default function EmployeesPage() {
     setPhoto(null);
     setDepartmentId('');
     setShiftId('');
+    setUnitId(localStorage.getItem('flowops_selected_unit_id') ?? '');
     setStatus('ACTIVE');
     setEditing(null);
     await load();
@@ -167,6 +179,7 @@ export default function EmployeesPage() {
     setPhoto(null);
     setDepartmentId(employee.department?.id ?? '');
     setShiftId(employee.shift?.id ?? '');
+    setUnitId(employee.unit?.id ?? '');
     setStatus(employee.status);
     setError('');
   }
@@ -181,6 +194,7 @@ export default function EmployeesPage() {
     setPhoto(null);
     setDepartmentId('');
     setShiftId('');
+    setUnitId(localStorage.getItem('flowops_selected_unit_id') ?? '');
     setStatus('ACTIVE');
   }
 
@@ -207,17 +221,21 @@ export default function EmployeesPage() {
 
       <section className="card" style={{ marginBottom: 16 }}>
         <h2>{editing ? 'Editar colaborador' : 'Novo colaborador'}</h2>
+        <div className="employee-auto-meta" aria-label="Informações automáticas do colaborador">
+          <div><span>Código interno</span><strong>{editing ? employeeCode : 'Gerado automaticamente'}</strong></div>
+          <div><span>Crachá de produção</span><strong>{editing ? (editing.badgeCode ?? 'Não atribuído') : 'Gerado após o cadastro'}</strong></div>
+          {!editing && <p>Essas informações serão criadas automaticamente quando o colaborador for cadastrado.</p>}
+        </div>
         <form className="employee-form" onSubmit={submit}>
-          <div className="field"><label>Código (automático)</label><input disabled value={employeeCode} placeholder="Gerado automaticamente" /></div>
-          <div className="field"><label>Nome</label><input required minLength={2} value={name} onChange={(e) => setName(e.target.value)} placeholder="Nome completo" /></div>
-          <div className="field"><label>Crachá (automático)</label><input disabled value={editing ? (editing.badgeCode ?? 'Não atribuído') : 'Gerado automaticamente após o cadastro'} /></div>
-          <div className="field"><label>Cargo</label><select value={jobTitleId} onChange={(e) => setJobTitleId(e.target.value)}><option value="">Sem cargo definido</option>{jobTitles.map((jobTitle) => <option key={jobTitle.id} value={jobTitle.id}>{jobTitle.name}</option>)}</select></div>
-          <div className="field"><label>{corporateEmail ? 'E-mail corporativo' : 'E-mail (opcional)'}</label>{corporateEmail ? <div className="generated-email">{email || `${emailAliasPreview(name)}@${emailConfig.emailDomain ?? 'dominio.com'}`}</div> : <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="nome@empresa.com" />}</div>
-          <div className="field checkbox-field"><label><input type="checkbox" checked={corporateEmail} disabled={!emailConfig.usesOwnEmailDomain && !corporateEmail} onChange={(e) => { setCorporateEmail(e.target.checked); if (e.target.checked) setEmail(''); }} /> Colaborador terá e-mail corporativo</label>{!emailConfig.usesOwnEmailDomain && <small>Configure um domínio próprio nas configurações da empresa.</small>}</div>
-          <div className="field"><label>Departamento</label><select value={departmentId} onChange={(e) => setDepartmentId(e.target.value)}><option value="">Sem departamento</option>{departments.map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}</select></div>
-          <div className="field"><label>Turno</label><select value={shiftId} onChange={(e) => setShiftId(e.target.value)}><option value="">Sem turno definido</option>{shifts.map((shift) => <option key={shift.id} value={shift.id}>{shift.name} · {shift.startTime}–{shift.endTime}</option>)}</select></div>
-          <div className="field"><label>Foto (JPG, PNG ou WebP)</label><input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setPhoto(e.target.files?.[0] ?? null)} /></div>
-          {editing && <div className="field"><label>Status</label><select value={status} onChange={(e) => setStatus(e.target.value)}><option value="ACTIVE">Ativo</option><option value="INACTIVE">Inativo</option><option value="TERMINATED">Desligado</option></select></div>}
+          <div className="field employee-field-name"><label>Nome completo</label><input required minLength={2} value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex.: Ana Martins" /></div>
+          <div className="field employee-field-job"><label>Cargo</label><select value={jobTitleId} onChange={(e) => setJobTitleId(e.target.value)}><option value="">Sem cargo definido</option>{jobTitles.map((jobTitle) => <option key={jobTitle.id} value={jobTitle.id}>{jobTitle.name}</option>)}</select></div>
+          <div className="field employee-field-unit"><label>Filial</label><select required value={unitId} onChange={(e) => setUnitId(e.target.value)}><option value="">Selecione a filial</option>{units.map((unit) => <option key={unit.id} value={unit.id}>{unit.name} · {unit.code}</option>)}</select></div>
+          <div className="field employee-field-email"><label>{corporateEmail ? 'E-mail corporativo' : 'E-mail pessoal (opcional)'}</label>{corporateEmail ? <div className="generated-email">{email || `${emailAliasPreview(name)}@${emailConfig.emailDomain ?? 'dominio.com'}`}</div> : <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="nome@empresa.com" />}</div>
+          <div className="field checkbox-field employee-field-corporate"><label><input type="checkbox" checked={corporateEmail} disabled={!emailConfig.usesOwnEmailDomain && !corporateEmail} onChange={(e) => { setCorporateEmail(e.target.checked); if (e.target.checked) setEmail(''); }} /> Colaborador terá e-mail corporativo</label>{!emailConfig.usesOwnEmailDomain && <small>Configure um domínio próprio nas configurações da empresa.</small>}</div>
+          <div className="field employee-field-department"><label>Departamento</label><select value={departmentId} onChange={(e) => setDepartmentId(e.target.value)}><option value="">Sem departamento</option>{departments.map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}</select></div>
+          <div className="field employee-field-shift"><label>Turno</label><select value={shiftId} onChange={(e) => setShiftId(e.target.value)}><option value="">Sem turno definido</option>{shifts.map((shift) => <option key={shift.id} value={shift.id}>{shift.name} · {shift.startTime}–{shift.endTime}</option>)}</select></div>
+          <div className="field employee-field-photo"><label>Foto do colaborador <span className="field-hint">JPG, PNG ou WebP</span></label><label className="file-picker"><input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setPhoto(e.target.files?.[0] ?? null)} /><span>Escolher foto</span><em>{photo?.name ?? 'Nenhum arquivo selecionado'}</em></label></div>
+          {editing && <div className="field employee-field-status"><label>Status</label><select value={status} onChange={(e) => setStatus(e.target.value)}><option value="ACTIVE">Ativo</option><option value="INACTIVE">Inativo</option><option value="TERMINATED">Desligado</option></select></div>}
           <div className="form-actions">
             <button className="btn" type="submit" disabled={saving}>{saving ? 'Salvando...' : editing ? 'Salvar alterações' : 'Cadastrar'}</button>
             {editing && <button className="btn btn-secondary" type="button" onClick={cancelEdit}>Cancelar</button>}
@@ -229,7 +247,7 @@ export default function EmployeesPage() {
       <section className="card">
         <h2>Colaboradores</h2>
         {employees.length === 0 ? <p className="muted">Nenhum colaborador cadastrado.</p> : (
-          <div className="table-wrap"><table><thead><tr><th>Colaborador</th><th>Código</th><th>Crachá</th><th>Departamento</th><th>Turno</th><th>Status</th><th>Ações</th></tr></thead><tbody>{employees.map((employee) => <tr key={employee.id}><td><div className="employee-summary">{employee.photoData ? <img className="avatar" src={employee.photoData} alt={`Foto de ${employee.name}`} /> : <span className="avatar avatar-placeholder">{employee.name.slice(0, 1)}</span>}<div><strong>{employee.name}</strong>{employee.jobTitle && <div className="muted">{employee.jobTitle}</div>}</div></div></td><td>{employee.employeeCode}</td><td>{employee.badgeCode ?? '—'}</td><td>{employee.department?.name ?? '—'}</td><td>{employee.shift?.name ?? '—'}</td><td><span className={employee.status === 'ACTIVE' ? 'status' : 'status status-inactive'}>{employee.status === 'ACTIVE' ? 'ATIVO' : 'INATIVO'}</span></td><td><div className="row-actions">{employee.badgeCode && <button className="btn btn-secondary" onClick={() => setQrEmployee(employee)}>Etiqueta QR</button>}{isAdmin && !employee.userId && <button className="btn btn-secondary" onClick={() => { setAccessEmployee(employee); setAccessEmail(employee.email ?? ''); }}>Conceder acesso</button>}{isAdmin && employee.userId && <button className="btn btn-danger" onClick={async () => { if (!window.confirm(`Cancelar o acesso de ${employee.name}?`)) return; const authorization = headers(); if (authorization) { await fetch(`${API}/employees/${employee.id}/access`, { method: 'DELETE', headers: authorization }); await load(); } }}>Cancelar acesso</button>}<button className="btn btn-secondary" onClick={() => edit(employee)}>Editar</button></div></td></tr>)}</tbody></table></div>
+          <div className="table-wrap"><table><thead><tr><th>Colaborador</th><th>Filial</th><th>Código</th><th>Crachá</th><th>Departamento</th><th>Turno</th><th>Status</th><th>Ações</th></tr></thead><tbody>{employees.map((employee) => <tr key={employee.id}><td><div className="employee-summary">{employee.photoData ? <img className="avatar" src={employee.photoData} alt={`Foto de ${employee.name}`} /> : <span className="avatar avatar-placeholder">{employee.name.slice(0, 1)}</span>}<div><strong>{employee.name}</strong>{employee.jobTitle && <div className="muted">{employee.jobTitle}</div>}</div></div></td><td>{employee.unit?.name ?? '—'}</td><td>{employee.employeeCode}</td><td>{employee.badgeCode ?? '—'}</td><td>{employee.department?.name ?? '—'}</td><td>{employee.shift?.name ?? '—'}</td><td><span className={employee.status === 'ACTIVE' ? 'status' : 'status status-inactive'}>{employee.status === 'ACTIVE' ? 'ATIVO' : 'INATIVO'}</span></td><td><div className="row-actions">{employee.badgeCode && <button className="btn btn-secondary" onClick={() => setQrEmployee(employee)}>Etiqueta QR</button>}{isAdmin && !employee.userId && <button className="btn btn-secondary" onClick={() => { setAccessEmployee(employee); setAccessEmail(employee.email ?? ''); }}>Conceder acesso</button>}{isAdmin && employee.userId && <button className="btn btn-danger" onClick={async () => { if (!window.confirm(`Cancelar o acesso de ${employee.name}?`)) return; const authorization = headers(); if (authorization) { await fetch(`${API}/employees/${employee.id}/access`, { method: 'DELETE', headers: authorization }); await load(); } }}>Cancelar acesso</button>}<button className="btn btn-secondary" onClick={() => edit(employee)}>Editar</button></div></td></tr>)}</tbody></table></div>
         )}
       </section>
       {accessEmployee && <div className="modal-backdrop"><section className="card access-modal"><h2>Conceder acesso</h2><p>{accessEmployee.name}</p><input type="email" value={accessEmail} onChange={(e) => setAccessEmail(e.target.value)} placeholder="E-mail" /><select value={accessRole} onChange={(e) => setAccessRole(e.target.value)}><option value="OPERATOR">Operador</option><option value="SUPERVISOR">Supervisor</option><option value="FOREMAN">Encarregado</option></select><input type="password" value={accessPassword} onChange={(e) => setAccessPassword(e.target.value)} placeholder="Senha inicial" /><div className="form-actions"><button className="btn" onClick={provisionAccess}>Criar acesso</button><button className="btn btn-secondary" onClick={() => setAccessEmployee(null)}>Cancelar</button></div></section></div>}

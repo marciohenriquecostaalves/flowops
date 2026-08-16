@@ -14,6 +14,12 @@ async function main() {
     create: { name: 'FlowOps Demo', slug: 'flowops-demo' },
   });
 
+  const unit = await prisma.businessUnit.upsert({
+    where: { tenantId_code: { tenantId: tenant.id, code: 'MATRIZ' } },
+    update: { name: tenant.name, active: true, type: 'HEADQUARTERS' },
+    create: { tenantId: tenant.id, code: 'MATRIZ', name: tenant.name, type: 'HEADQUARTERS' },
+  });
+
   const permissions = [
     ['dashboard.read', 'Visualizar dashboards'],
     ['employees.read', 'Visualizar colaboradores'],
@@ -66,10 +72,16 @@ async function main() {
     create: { userId: user.id, roleId: role.id },
   });
 
+  await prisma.userUnitAccess.upsert({
+    where: { userId_unitId: { userId: user.id, unitId: unit.id } },
+    update: { isPrimary: true },
+    create: { userId: user.id, unitId: unit.id, isPrimary: true },
+  });
+
   const department = await prisma.department.upsert({
     where: { tenantId_name: { tenantId: tenant.id, name: 'Operação' } },
-    update: {},
-    create: { tenantId: tenant.id, name: 'Operação' },
+    update: { unitId: unit.id },
+    create: { tenantId: tenant.id, unitId: unit.id, name: 'Operação' },
   });
 
   const shift = await prisma.shift.upsert({
@@ -77,6 +89,7 @@ async function main() {
     update: {},
     create: {
       tenantId: tenant.id,
+      unitId: unit.id,
       name: '1º Turno',
       startTime: '07:00',
       endTime: '16:48',
@@ -86,9 +99,10 @@ async function main() {
 
   const activity = await prisma.activity.upsert({
     where: { tenantId_code: { tenantId: tenant.id, code: 'SEPARACAO' } },
-    update: {},
+    update: { unitId: unit.id, departmentId: department.id },
     create: {
       tenantId: tenant.id,
+      unitId: unit.id,
       departmentId: department.id,
       code: 'SEPARACAO',
       name: 'Separação',
@@ -98,15 +112,16 @@ async function main() {
 
   const jobTitle = await prisma.jobTitle.upsert({
     where: { tenantId_name: { tenantId: tenant.id, name: 'Operador logístico' } },
-    update: {},
-    create: { tenantId: tenant.id, name: 'Operador logístico' },
+    update: { unitId: unit.id },
+    create: { tenantId: tenant.id, unitId: unit.id, name: 'Operador logístico' },
   });
 
   const employee = await prisma.employee.upsert({
     where: { tenantId_employeeCode: { tenantId: tenant.id, employeeCode: 'EMP-001' } },
-    update: { departmentId: department.id, shiftId: shift.id, jobTitleId: jobTitle.id, jobTitle: jobTitle.name },
+    update: { unitId: unit.id, departmentId: department.id, shiftId: shift.id, jobTitleId: jobTitle.id, jobTitle: jobTitle.name },
     create: {
       tenantId: tenant.id,
+      unitId: unit.id,
       employeeCode: 'EMP-001',
       badgeCode: 'CR-00000001',
       name: 'Colaborador Demo',

@@ -8,6 +8,7 @@ import { AccessAreasGuard } from '../auth/access-areas.guard';
 import { OperationsService } from './operations.service';
 import { StartSessionDto } from './dto/start-session.dto';
 import { UnitsDto } from './dto/units.dto';
+import { selectedUnitId as getSelectedUnitId } from '../auth/unit-scope';
 
 @ApiTags('operations')
 @ApiBearerAuth()
@@ -21,7 +22,7 @@ export class OperationsController {
   @AccessAreas('operations')
   async start(@Req() req: any, @Body() dto: StartSessionDto) {
     if (req.user.roles?.includes('OPERATOR')) await this.service.assertOperatorStart(req.user.tenantId, req.user.sub, dto.employeeId);
-    return this.service.start(req.user.tenantId, req.user.sub, dto);
+    return this.service.start(req.user.tenantId, req.user.sub, dto, req.user.roles ?? [], req.user.unitIds ?? [], getSelectedUnitId(req));
   }
 
   @Post('sessions/:id/pause')
@@ -29,7 +30,7 @@ export class OperationsController {
   @AccessAreas('operations')
   async pause(@Req() req: any, @Param('id') id: string) {
     if (req.user.roles?.includes('OPERATOR')) await this.service.assertOperatorSession(req.user.tenantId, req.user.sub, id);
-    return this.service.pause(req.user.tenantId, req.user.sub, id);
+    return this.service.pause(req.user.tenantId, req.user.sub, id, req.user.roles ?? [], req.user.unitIds ?? [], getSelectedUnitId(req));
   }
 
   @Post('sessions/:id/resume')
@@ -37,7 +38,7 @@ export class OperationsController {
   @AccessAreas('operations')
   async resume(@Req() req: any, @Param('id') id: string) {
     if (req.user.roles?.includes('OPERATOR')) await this.service.assertOperatorSession(req.user.tenantId, req.user.sub, id);
-    return this.service.resume(req.user.tenantId, req.user.sub, id);
+    return this.service.resume(req.user.tenantId, req.user.sub, id, req.user.roles ?? [], req.user.unitIds ?? [], getSelectedUnitId(req));
   }
 
   @Post('sessions/:id/finish')
@@ -45,7 +46,7 @@ export class OperationsController {
   @AccessAreas('operations')
   async finish(@Req() req: any, @Param('id') id: string) {
     if (req.user.roles?.includes('OPERATOR')) await this.service.assertOperatorSession(req.user.tenantId, req.user.sub, id);
-    return this.service.finish(req.user.tenantId, req.user.sub, id);
+    return this.service.finish(req.user.tenantId, req.user.sub, id, req.user.roles ?? [], req.user.unitIds ?? [], getSelectedUnitId(req));
   }
 
   @Patch('sessions/:id/units')
@@ -53,7 +54,7 @@ export class OperationsController {
   @AccessAreas('operations')
   async setUnits(@Req() req: any, @Param('id') id: string, @Body() dto: UnitsDto) {
     if (req.user.roles?.includes('OPERATOR')) await this.service.assertOperatorSession(req.user.tenantId, req.user.sub, id);
-    return this.service.setUnits(req.user.tenantId, req.user.sub, id, dto);
+    return this.service.setUnits(req.user.tenantId, req.user.sub, id, dto, req.user.roles ?? [], req.user.unitIds ?? [], getSelectedUnitId(req));
   }
 
   @Get('sessions/active')
@@ -61,7 +62,7 @@ export class OperationsController {
   @AccessAreas('operations', 'dashboard')
   async active(@Req() req: any) {
     const departmentId = req.user.roles?.includes('FOREMAN') ? await this.service.departmentForUser(req.user.tenantId, req.user.sub) : undefined;
-    return this.service.active(req.user.tenantId, req.user.roles?.includes('OPERATOR') ? req.user.sub : undefined, departmentId);
+    return this.service.active(req.user.tenantId, req.user.roles?.includes('OPERATOR') ? req.user.sub : undefined, departmentId, req.user.roles ?? [], req.user.unitIds ?? [], getSelectedUnitId(req));
   }
 
   @Get('productivity')
@@ -69,6 +70,6 @@ export class OperationsController {
   @AccessAreas('operations', 'dashboard')
   async productivity(@Req() req: any) {
     const departmentId = req.user.roles?.includes('FOREMAN') ? await this.service.departmentForUser(req.user.tenantId, req.user.sub) : undefined;
-    return this.service.productivity(req.user.tenantId, req.user.roles?.includes('OPERATOR') ? req.user.sub : undefined, departmentId);
+    return this.service.productivity(req.user.tenantId, req.user.roles?.includes('OPERATOR') ? req.user.sub : undefined, departmentId, req.user.roles ?? [], req.user.unitIds ?? [], getSelectedUnitId(req));
   }
 }

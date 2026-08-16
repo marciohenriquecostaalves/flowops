@@ -39,6 +39,11 @@ enum ProductionPunchType {
   FINISH
 }
 
+enum BusinessUnitType {
+  HEADQUARTERS
+  BRANCH
+}
+
 model Tenant {
   id          String       @id @default(cuid())
   name        String
@@ -63,6 +68,7 @@ model Tenant {
   roles       Role[]
   kioskDevices KioskDevice[]
   productionPunches ProductionPunch[]
+  businessUnits BusinessUnit[]
 }
 
 model User {
@@ -80,9 +86,50 @@ model User {
   roles           UserRole[]
   employee        Employee?
   auditLogs       AuditLog[]
+  unitAccess      UserUnitAccess[]
 
   @@unique([tenantId, email])
   @@index([tenantId])
+}
+
+model BusinessUnit {
+  id               String           @id @default(cuid())
+  tenantId         String
+  parentId         String?
+  code             String
+  name             String
+  type             BusinessUnitType @default(BRANCH)
+  active           Boolean          @default(true)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  tenant           Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  parent           BusinessUnit?    @relation("BusinessUnitHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children         BusinessUnit[]   @relation("BusinessUnitHierarchy")
+  userAccess       UserUnitAccess[]
+  employees        Employee[]
+  departments      Department[]
+  shifts           Shift[]
+  activities       Activity[]
+  sessions         ActivitySession[]
+  kioskDevices     KioskDevice[]
+  productionPunches ProductionPunch[]
+  jobTitles        JobTitle[]
+  auditLogs        AuditLog[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, parentId])
+  @@index([tenantId, active])
+}
+
+model UserUnitAccess {
+  userId    String
+  unitId    String
+  isPrimary Boolean      @default(false)
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  unit      BusinessUnit @relation(fields: [unitId], references: [id], onDelete: Cascade)
+
+  @@id([userId, unitId])
+  @@index([unitId])
 }
 
 model Role {
@@ -125,6 +172,7 @@ model RolePermission {
 model Employee {
   id           String         @id @default(cuid())
   tenantId     String
+  unitId       String?
   userId       String?        @unique
   employeeCode String
   name         String
@@ -140,6 +188,7 @@ model Employee {
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
   tenant       Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  unit         BusinessUnit?  @relation(fields: [unitId], references: [id], onDelete: SetNull)
   user         User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
   department   Department?    @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   shift        Shift?         @relation(fields: [shiftId], references: [id], onDelete: SetNull)
@@ -150,38 +199,46 @@ model Employee {
   @@unique([tenantId, employeeCode])
   @@unique([tenantId, badgeCode])
   @@index([tenantId, status])
+  @@index([unitId, status])
 }
 
 model JobTitle {
   id        String     @id @default(cuid())
   tenantId  String
+  unitId    String?
   name      String
   active    Boolean    @default(true)
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
   tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  unit      BusinessUnit? @relation(fields: [unitId], references: [id], onDelete: SetNull)
   employees Employee[]
 
   @@unique([tenantId, name])
   @@index([tenantId, active])
+  @@index([unitId, active])
 }
 
 model Department {
   id         String     @id @default(cuid())
   tenantId   String
+  unitId     String?
   name       String
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
   tenant     Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  unit       BusinessUnit? @relation(fields: [unitId], references: [id], onDelete: SetNull)
   employees  Employee[]
   activities Activity[]
 
   @@unique([tenantId, name])
+  @@index([unitId])
 }
 
 model Shift {
   id         String   @id @default(cuid())
   tenantId   String
+  unitId     String?
   name       String
   startTime  String
   endTime    String
@@ -190,15 +247,18 @@ model Shift {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
   tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  unit       BusinessUnit? @relation(fields: [unitId], references: [id], onDelete: SetNull)
   employees  Employee[]
 
   @@unique([tenantId, name])
   @@index([tenantId, active])
+  @@index([unitId, active])
 }
 
 model Activity {
   id           String         @id @default(cuid())
   tenantId     String
+  unitId       String?
   departmentId String?
   name         String
   code         String
@@ -207,6 +267,7 @@ model Activity {
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
   tenant       Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  unit         BusinessUnit?  @relation(fields: [unitId], references: [id], onDelete: SetNull)
   department   Department?    @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   sessions     ActivitySession[]
   kioskDevices KioskDevice[]
@@ -214,11 +275,13 @@ model Activity {
 
   @@unique([tenantId, code])
   @@index([tenantId, status])
+  @@index([unitId, status])
 }
 
 model ActivitySession {
   id               String        @id @default(cuid())
   tenantId         String
+  unitId           String?
   employeeId       String
   activityId       String
   status           SessionStatus @default(RUNNING)
@@ -231,17 +294,20 @@ model ActivitySession {
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
   tenant             Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  unit               BusinessUnit? @relation(fields: [unitId], references: [id], onDelete: SetNull)
   employee           Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   activity           Activity     @relation(fields: [activityId], references: [id], onDelete: Cascade)
   punches            ProductionPunch[]
 
   @@index([tenantId, employeeId, status])
   @@index([tenantId, startedAt])
+  @@index([unitId, startedAt])
 }
 
 model KioskDevice {
   id          String   @id @default(cuid())
   tenantId    String
+  unitId      String?
   activityId  String
   name        String
   code        String
@@ -250,16 +316,19 @@ model KioskDevice {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  unit        BusinessUnit? @relation(fields: [unitId], references: [id], onDelete: SetNull)
   activity    Activity @relation(fields: [activityId], references: [id], onDelete: Restrict)
   punches     ProductionPunch[]
 
   @@unique([tenantId, code])
   @@index([tenantId, active])
+  @@index([unitId, active])
 }
 
 model ProductionPunch {
   id            String              @id @default(cuid())
   tenantId      String
+  unitId        String?
   employeeId    String
   kioskDeviceId String
   activityId    String
@@ -268,6 +337,7 @@ model ProductionPunch {
   sequence      Int
   recordedAt    DateTime            @default(now())
   tenant        Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  unit          BusinessUnit?       @relation(fields: [unitId], references: [id], onDelete: SetNull)
   employee      Employee            @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   kioskDevice   KioskDevice         @relation(fields: [kioskDeviceId], references: [id], onDelete: Cascade)
   activity      Activity            @relation(fields: [activityId], references: [id], onDelete: Cascade)
@@ -276,11 +346,13 @@ model ProductionPunch {
   @@unique([sessionId, sequence])
   @@index([tenantId, employeeId, recordedAt])
   @@index([tenantId, kioskDeviceId, recordedAt])
+  @@index([unitId, recordedAt])
 }
 
 model AuditLog {
   id         String   @id @default(cuid())
   tenantId   String
+  unitId     String?
   userId     String?
   action     String
   entity     String
@@ -288,7 +360,9 @@ model AuditLog {
   metadata   Json?
   createdAt  DateTime @default(now())
   tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  unit       BusinessUnit? @relation(fields: [unitId], references: [id], onDelete: SetNull)
   user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([tenantId, createdAt])
+  @@index([unitId, createdAt])
 }

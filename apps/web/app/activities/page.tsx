@@ -5,16 +5,19 @@ import { useRouter } from 'next/navigation';
 import { AppShell } from '../components/app-shell';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api';
-type Department = { id: string; name: string };
-type Activity = { id: string; name: string; code: string; status: string; targetPerHour: string | null; department: Department | null };
+type Department = { id: string; name: string; unit?: { id: string } };
+type BusinessUnit = { id: string; code: string; name: string; active: boolean };
+type Activity = { id: string; name: string; code: string; status: string; targetPerHour: string | null; department: Department | null; unit: BusinessUnit };
 
 export default function ActivitiesPage() {
   const router = useRouter();
   const [activities, setActivities] = useState<Activity[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
+  const [units, setUnits] = useState<BusinessUnit[]>([]);
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
   const [departmentId, setDepartmentId] = useState('');
+  const [unitId, setUnitId] = useState('');
   const [targetPerHour, setTargetPerHour] = useState('');
   const [editing, setEditing] = useState<Activity | null>(null);
   const [loading, setLoading] = useState(true);
@@ -23,26 +26,31 @@ export default function ActivitiesPage() {
 
   const headers = () => {
     const token = localStorage.getItem('flowops_access_token');
-    return token ? { Authorization: `Bearer ${token}` } : null;
+    const selectedUnitId = localStorage.getItem('flowops_selected_unit_id');
+    return token ? { Authorization: `Bearer ${token}`, ...(selectedUnitId ? { 'X-FlowOps-Unit-Id': selectedUnitId } : {}) } : null;
   };
   async function load() {
     const authorization = headers();
     if (!authorization) return router.replace('/');
-    const [activitiesResponse, departmentsResponse] = await Promise.all([
-      fetch(`${API}/activities`, { headers: authorization }), fetch(`${API}/departments`, { headers: authorization }),
+    const [activitiesResponse, departmentsResponse, unitsResponse] = await Promise.all([
+      fetch(`${API}/activities`, { headers: authorization }), fetch(`${API}/departments`, { headers: authorization }), fetch(`${API}/business-units`, { headers: authorization }),
     ]);
-    if (!activitiesResponse.ok || !departmentsResponse.ok) { localStorage.clear(); return router.replace('/'); }
+    if (!activitiesResponse.ok || !departmentsResponse.ok || !unitsResponse.ok) { localStorage.clear(); return router.replace('/'); }
     setActivities(await activitiesResponse.json());
     setDepartments(await departmentsResponse.json());
+    const nextUnits = await unitsResponse.json();
+    setUnits(nextUnits);
+    const selectedUnitId = localStorage.getItem('flowops_selected_unit_id');
+    if (!unitId && nextUnits[0]) setUnitId(nextUnits.find((unit: BusinessUnit) => unit.id === selectedUnitId)?.id ?? nextUnits[0].id);
     setLoading(false);
   }
   useEffect(() => { void load(); }, []);
-  function reset() { setEditing(null); setName(''); setCode(''); setDepartmentId(''); setTargetPerHour(''); setError(''); }
-  function edit(activity: Activity) { setEditing(activity); setName(activity.name); setCode(activity.code); setDepartmentId(activity.department?.id ?? ''); setTargetPerHour(activity.targetPerHour ?? ''); setError(''); }
+  function reset() { setEditing(null); setName(''); setCode(''); setDepartmentId(''); setUnitId(localStorage.getItem('flowops_selected_unit_id') ?? units[0]?.id ?? ''); setTargetPerHour(''); setError(''); }
+  function edit(activity: Activity) { setEditing(activity); setName(activity.name); setCode(activity.code); setUnitId(activity.unit.id); setDepartmentId(activity.department?.id ?? ''); setTargetPerHour(activity.targetPerHour ?? ''); setError(''); }
   async function submit(event: FormEvent) {
     event.preventDefault(); const authorization = headers(); if (!authorization) return router.replace('/');
     setSaving(true); setError('');
-    const body = editing ? { name, departmentId: departmentId || null, ...(targetPerHour ? { targetPerHour: Number(targetPerHour) } : {}) } : { name, code, ...(departmentId ? { departmentId } : {}), ...(targetPerHour ? { targetPerHour: Number(targetPerHour) } : {}) };
+    const body = editing ? { name, unitId, departmentId: departmentId || null, ...(targetPerHour ? { targetPerHour: Number(targetPerHour) } : {}) } : { name, code, unitId, ...(departmentId ? { departmentId } : {}), ...(targetPerHour ? { targetPerHour: Number(targetPerHour) } : {}) };
     const response = await fetch(editing ? `${API}/activities/${editing.id}` : `${API}/activities`, { method: editing ? 'PATCH' : 'POST', headers: { ...authorization, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     setSaving(false);
     if (!response.ok) { setError(`Não foi possível ${editing ? 'atualizar' : 'cadastrar'} a atividade.`); return; }
@@ -59,10 +67,11 @@ export default function ActivitiesPage() {
     <section className="card" style={{ marginBottom:16 }}><h2>{editing ? 'Editar atividade' : 'Nova atividade'}</h2><form className="activity-form" onSubmit={submit}>
       <div className="field"><label>Código</label><input required disabled={Boolean(editing)} minLength={2} value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} placeholder="SEPARACAO" /></div>
       <div className="field"><label>Nome</label><input required minLength={2} value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex.: Separação de pedidos" /></div>
-      <div className="field"><label>Departamento</label><select value={departmentId} onChange={(e) => setDepartmentId(e.target.value)}><option value="">Sem departamento</option>{departments.map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}</select></div>
+      <div className="field"><label>Filial</label><select required value={unitId} onChange={(e) => { setUnitId(e.target.value); setDepartmentId(''); }}><option value="">Selecione a filial</option>{units.map((unit) => <option key={unit.id} value={unit.id}>{unit.code} · {unit.name}</option>)}</select></div>
+      <div className="field"><label>Departamento</label><select value={departmentId} onChange={(e) => setDepartmentId(e.target.value)}><option value="">Sem departamento</option>{departments.filter((department) => !unitId || department.unit?.id === unitId).map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}</select></div>
       <div className="field"><label>Meta por hora</label><input type="number" min="0" step="0.1" value={targetPerHour} onChange={(e) => setTargetPerHour(e.target.value)} placeholder="Ex.: 50" /></div>
       <div className="form-actions"><button className="btn" type="submit" disabled={saving}>{saving ? 'Salvando...' : editing ? 'Salvar alterações' : 'Cadastrar'}</button>{editing && <button className="btn btn-secondary" type="button" onClick={reset}>Cancelar</button>}</div>
     </form>{error && <div className="error">{error}</div>}</section>
-    <section className="card"><h2>Atividades cadastradas</h2>{activities.length === 0 ? <p className="muted">Nenhuma atividade cadastrada.</p> : <div className="table-wrap"><table><thead><tr><th>Código</th><th>Atividade</th><th>Departamento</th><th>Meta/h</th><th>Status</th><th>Ações</th></tr></thead><tbody>{activities.map((activity) => <tr key={activity.id}><td>{activity.code}</td><td><strong>{activity.name}</strong></td><td>{activity.department?.name ?? '—'}</td><td>{activity.targetPerHour ?? '—'}</td><td><span className={activity.status === 'ACTIVE' ? 'status' : 'status status-muted'}>{activity.status}</span></td><td><div className="row-actions"><button className="btn btn-secondary" onClick={() => edit(activity)}>Editar</button><button className="btn btn-danger" onClick={() => toggle(activity)}>{activity.status === 'ACTIVE' ? 'Desativar' : 'Ativar'}</button></div></td></tr>)}</tbody></table></div>}</section>
+    <section className="card"><h2>Atividades cadastradas</h2>{activities.length === 0 ? <p className="muted">Nenhuma atividade cadastrada.</p> : <div className="table-wrap"><table><thead><tr><th>Código</th><th>Atividade</th><th>Filial</th><th>Departamento</th><th>Meta/h</th><th>Status</th><th>Ações</th></tr></thead><tbody>{activities.map((activity) => <tr key={activity.id}><td>{activity.code}</td><td><strong>{activity.name}</strong></td><td>{activity.unit?.code ?? '—'}</td><td>{activity.department?.name ?? '—'}</td><td>{activity.targetPerHour ?? '—'}</td><td><span className={activity.status === 'ACTIVE' ? 'status' : 'status status-muted'}>{activity.status}</span></td><td><div className="row-actions"><button className="btn btn-secondary" onClick={() => edit(activity)}>Editar</button><button className="btn btn-danger" onClick={() => toggle(activity)}>{activity.status === 'ACTIVE' ? 'Desativar' : 'Ativar'}</button></div></td></tr>)}</tbody></table></div>}</section>
   </AppShell>;
 }

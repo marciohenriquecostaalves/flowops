@@ -1,32 +1,38 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { randomInt } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
+import { canAccessUnit, scopedUnitWhere } from '../auth/unit-scope';
 
 @Injectable()
 export class EmployeesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  list(tenantId: string, userId?: string) {
+  list(tenantId: string, userId?: string, roles: string[] = [], unitIds: string[] = [], selectedUnitId?: string) {
     return this.prisma.employee.findMany({
-      where: { tenantId, ...(userId ? { userId } : {}) },
-      include: { department: true, shift: true, jobTitleRef: true },
+      where: { ...scopedUnitWhere(tenantId, roles, unitIds, selectedUnitId), ...(userId ? { userId } : {}) },
+      include: { department: true, shift: true, jobTitleRef: true, unit: true },
       orderBy: { name: 'asc' },
     });
   }
   async get(tenantId: string, id: string) { const employee = await this.prisma.employee.findFirst({ where: { id, tenantId } }); if (!employee) throw new NotFoundException('Colaborador não encontrado'); return employee; }
 
-  async create(tenantId: string, actorUserId: string, dto: CreateEmployeeDto, photoData?: string) {
+  async create(tenantId: string, actorUserId: string, dto: CreateEmployeeDto, photoData?: string, roles: string[] = [], unitIds: string[] = [], primaryUnitId?: string) {
+    const unitId = dto.unitId ?? primaryUnitId;
+    if (!unitId) throw new BadRequestException('Selecione uma filial para o colaborador');
+    if (!canAccessUnit(roles, unitIds, unitId)) throw new ForbiddenException('Você não tem acesso a esta filial');
+    const unit = await this.prisma.businessUnit.findFirst({ where: { id: unitId, tenantId, active: true } });
+    if (!unit) throw new NotFoundException('Filial não pertence à empresa ou está inativa');
     const [department, shift, jobTitle, tenant] = await Promise.all([
       dto.departmentId
-        ? this.prisma.department.findFirst({ where: { id: dto.departmentId, tenantId } })
+        ? this.prisma.department.findFirst({ where: { id: dto.departmentId, tenantId, unitId } })
         : null,
       dto.shiftId
-        ? this.prisma.shift.findFirst({ where: { id: dto.shiftId, tenantId } })
+        ? this.prisma.shift.findFirst({ where: { id: dto.shiftId, tenantId, unitId } })
         : null,
       dto.jobTitleId
-        ? this.prisma.jobTitle.findFirst({ where: { id: dto.jobTitleId, tenantId, active: true } })
+        ? this.prisma.jobTitle.findFirst({ where: { id: dto.jobTitleId, tenantId, unitId, active: true } })
         : null,
       this.prisma.tenant.findUnique({ where: { id: tenantId }, select: { emailDomain: true, usesOwnEmailDomain: true } }),
     ]);
@@ -54,6 +60,7 @@ export class EmployeesService {
       const employee = await this.prisma.employee.create({
         data: {
           tenantId,
+          unitId,
           employeeCode: dto.employeeCode || await this.nextCode(tenantId),
           badgeCode,
           name: dto.name,
@@ -65,7 +72,7 @@ export class EmployeesService {
           departmentId: dto.departmentId,
           shiftId: dto.shiftId,
         },
-        include: { department: true, shift: true, jobTitleRef: true },
+        include: { department: true, shift: true, jobTitleRef: true, unit: true },
       });
       await this.audit(tenantId, actorUserId, 'EMPLOYEE_CREATED', employee.id, {
         name: employee.name,
@@ -77,27 +84,33 @@ export class EmployeesService {
     }
   }
 
-  async update(tenantId: string, actorUserId: string, id: string, dto: UpdateEmployeeDto, photoData?: string) {
-    const employee = await this.prisma.employee.findFirst({ where: { id, tenantId } });
+  async update(tenantId: string, actorUserId: string, id: string, dto: UpdateEmployeeDto, photoData?: string, roles: string[] = [], unitIds: string[] = [], primaryUnitId?: string, selectedUnitId?: string) {
+    const employee = await this.prisma.employee.findFirst({ where: { id, ...scopedUnitWhere(tenantId, roles, unitIds, selectedUnitId) } });
     if (!employee) throw new NotFoundException('Colaborador não encontrado');
+
+    const unitId = dto.unitId ?? employee.unitId ?? primaryUnitId;
+    if (!unitId) throw new BadRequestException('Selecione uma filial para o colaborador');
+    if (!canAccessUnit(roles, unitIds, unitId)) throw new ForbiddenException('Você não tem acesso a esta filial');
+    const unit = await this.prisma.businessUnit.findFirst({ where: { id: unitId, tenantId, active: true } });
+    if (!unit) throw new NotFoundException('Filial não pertence à empresa ou está inativa');
 
     if (dto.departmentId) {
       const department = await this.prisma.department.findFirst({
-        where: { id: dto.departmentId, tenantId },
+        where: { id: dto.departmentId, tenantId, unitId },
       });
       if (!department) throw new NotFoundException('Departamento não pertence à empresa');
     }
 
     if (dto.shiftId) {
       const shift = await this.prisma.shift.findFirst({
-        where: { id: dto.shiftId, tenantId },
+        where: { id: dto.shiftId, tenantId, unitId },
       });
       if (!shift) throw new NotFoundException('Turno não pertence à empresa');
     }
 
     let jobTitleName: string | null | undefined;
     if (dto.jobTitleId) {
-      const jobTitle = await this.prisma.jobTitle.findFirst({ where: { id: dto.jobTitleId, tenantId, active: true } });
+      const jobTitle = await this.prisma.jobTitle.findFirst({ where: { id: dto.jobTitleId, tenantId, unitId, active: true } });
       if (!jobTitle) throw new NotFoundException('Cargo não pertence à empresa ou está inativo');
       jobTitleName = jobTitle.name;
     }
@@ -120,6 +133,7 @@ export class EmployeesService {
 
     const data = {
       ...dto,
+      unitId,
       corporateEmail: wantsCorporateEmail,
       ...(employeeEmail !== undefined ? { email: employeeEmail } : {}),
       ...(dto.departmentId === '' ? { departmentId: null } : {}),
@@ -132,7 +146,7 @@ export class EmployeesService {
     const updated = await this.prisma.employee.update({
       where: { id },
       data,
-      include: { department: true, shift: true, jobTitleRef: true },
+      include: { department: true, shift: true, jobTitleRef: true, unit: true },
     });
     await this.audit(tenantId, actorUserId, 'EMPLOYEE_UPDATED', id, {
       name: updated.name,

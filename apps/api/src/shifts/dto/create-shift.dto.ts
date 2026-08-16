@@ -1,4 +1,4 @@
-import { IsInt, IsString, Max, Min, MinLength } from 'class-validator';
+import { IsInt, IsOptional, IsString, Max, Min, MinLength } from 'class-validator';
 
 export class CreateShiftDto {
   @IsString()
@@ -15,4 +15,8 @@ export class CreateShiftDto {
   @Min(0)
   @Max(180)
   toleranceMinutes = 0;
+
+  @IsOptional()
+  @IsString()
+  unitId?: string;
 }

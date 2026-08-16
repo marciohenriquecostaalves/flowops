@@ -17,4 +17,8 @@ export class CreateActivityDto {
   @IsNumber()
   @Min(0)
   targetPerHour?: number;
+
+  @IsOptional()
+  @IsString()
+  unitId?: string;
 }

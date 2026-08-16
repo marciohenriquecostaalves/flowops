@@ -1,24 +1,28 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateActivityDto } from './dto/create-activity.dto';
 import { UpdateActivityDto } from './dto/update-activity.dto';
+import { canAccessUnit, scopedUnitWhere } from '../auth/unit-scope';
 
 @Injectable()
 export class ActivitiesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  list(tenantId: string) {
+  list(tenantId: string, roles: string[] = [], unitIds: string[] = [], selectedUnitId?: string) {
     return this.prisma.activity.findMany({
-      where: { tenantId },
-      include: { department: true },
+      where: scopedUnitWhere(tenantId, roles, unitIds, selectedUnitId),
+      include: { department: true, unit: { select: { id: true, code: true, name: true } } },
       orderBy: { name: 'asc' },
     });
   }
 
-  async create(tenantId: string, actorUserId: string, dto: CreateActivityDto) {
+  async create(tenantId: string, actorUserId: string, dto: CreateActivityDto, roles: string[] = [], unitIds: string[] = [], primaryUnitId?: string) {
+    const unitId = dto.unitId ?? primaryUnitId;
+    if (!unitId || !canAccessUnit(roles, unitIds, unitId)) throw new ForbiddenException('Selecione uma filial permitida');
+    if (!await this.prisma.businessUnit.findFirst({ where: { id: unitId, tenantId, active: true } })) throw new NotFoundException('Filial não pertence à empresa ou está inativa');
     if (dto.departmentId) {
       const department = await this.prisma.department.findFirst({
-        where: { id: dto.departmentId, tenantId },
+        where: { id: dto.departmentId, tenantId, unitId },
       });
       if (!department) throw new NotFoundException('Departamento não encontrado');
     }
@@ -27,6 +31,7 @@ export class ActivitiesService {
       const activity = await this.prisma.activity.create({
         data: {
           tenantId,
+          unitId,
           name: dto.name,
           code: dto.code,
           departmentId: dto.departmentId,
@@ -40,9 +45,16 @@ export class ActivitiesService {
     }
   }
 
-  async update(tenantId: string, actorUserId: string, id: string, dto: UpdateActivityDto) {
-    const activity = await this.prisma.activity.findFirst({ where: { id, tenantId } });
+  async update(tenantId: string, actorUserId: string, id: string, dto: UpdateActivityDto, roles: string[] = [], unitIds: string[] = [], selectedUnitId?: string) {
+    const activity = await this.prisma.activity.findFirst({ where: { id, ...scopedUnitWhere(tenantId, roles, unitIds, selectedUnitId) } });
     if (!activity) throw new NotFoundException('Atividade não encontrada');
+    const unitId = dto.unitId ?? activity.unitId;
+    if (!unitId || !canAccessUnit(roles, unitIds, unitId)) throw new ForbiddenException('Filial não permitida');
+    if (dto.unitId && dto.unitId !== activity.unitId && !await this.prisma.businessUnit.findFirst({ where: { id: dto.unitId, tenantId, active: true } })) throw new NotFoundException('Filial não pertence à empresa ou está inativa');
+    if (dto.departmentId) {
+      const department = await this.prisma.department.findFirst({ where: { id: dto.departmentId, tenantId, unitId } });
+      if (!department) throw new NotFoundException('Departamento não encontrado nesta filial');
+    }
 
     const updated = await this.prisma.activity.update({
       where: { id },
@@ -50,7 +62,8 @@ export class ActivitiesService {
         name: dto.name,
         status: dto.active === undefined ? undefined : dto.active ? 'ACTIVE' : 'INACTIVE',
         targetPerHour: dto.targetPerHour,
-        departmentId: dto.departmentId,
+        ...(dto.departmentId !== undefined ? { departmentId: dto.departmentId } : {}),
+        ...(dto.unitId ? { unitId: dto.unitId } : {}),
       },
     });
     await this.audit(tenantId, actorUserId, 'ACTIVITY_UPDATED', id, {

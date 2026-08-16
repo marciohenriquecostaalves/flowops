@@ -58,7 +58,9 @@ function Login() {
       const data = await response.json();
       localStorage.setItem('flowops_access_token', data.accessToken);
       localStorage.setItem('flowops_refresh_token', data.refreshToken);
-      router.push('/dashboard');
+      const primaryUnit = data.user?.units?.find((unit: { isPrimary?: boolean }) => unit.isPrimary) ?? data.user?.units?.[0];
+      if (primaryUnit?.id) localStorage.setItem('flowops_selected_unit_id', primaryUnit.id);
+      router.replace('/dashboard');
     } catch {
       setError('Não foi possível entrar. Verifique a API e as credenciais.');
     }
