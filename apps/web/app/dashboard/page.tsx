@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppShell } from '../components/app-shell';
+import { authFetch } from '../lib/auth';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api';
 
@@ -42,16 +43,16 @@ export default function Dashboard() {
     const from = dateForInput(new Date(Date.now() - 29 * 24 * 60 * 60 * 1000));
     const to = dateForInput(new Date());
     const [me, sessions, productivity] = await Promise.all([
-      fetch(`${API}/auth/me`, { headers }),
-      fetch(`${API}/operations/sessions/active`, { headers }),
-      fetch(`${API}/operations/productivity`, { headers }),
+      authFetch(`${API}/auth/me`, { headers }),
+      authFetch(`${API}/operations/sessions/active`, { headers }),
+      authFetch(`${API}/operations/productivity`, { headers }),
     ]);
 
     if (!me.ok) throw new Error();
     setUser(await me.json());
     if (sessions.ok) setActive(await sessions.json());
     if (productivity.ok) setRanking(await productivity.json());
-    const overview = await fetch(`${API}/reports/overview?from=${from}&to=${to}`, { headers: baseHeaders });
+    const overview = await authFetch(`${API}/reports/overview?from=${from}&to=${to}`, { headers: baseHeaders });
     if (overview.ok) setCorporateOverview(await overview.json());
     else setCorporateOverview(null);
   }
@@ -59,10 +60,7 @@ export default function Dashboard() {
   useEffect(() => {
     const token = localStorage.getItem('flowops_access_token');
     if (!token) return router.replace('/');
-    load(token).catch(() => {
-      localStorage.clear();
-      router.replace('/');
-    });
+    load(token).catch(() => setError('Não foi possível carregar os dados. Verifique se a API está disponível e tente novamente.'));
   }, [router]);
 
   async function finish(id: string) {
@@ -70,7 +68,7 @@ export default function Dashboard() {
     if (!token) return;
     setError('');
     const selectedUnitId = localStorage.getItem('flowops_selected_unit_id');
-    const response = await fetch(`${API}/operations/sessions/${id}/finish`, {
+    const response = await authFetch(`${API}/operations/sessions/${id}/finish`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, ...(selectedUnitId ? { 'X-FlowOps-Unit-Id': selectedUnitId } : {}) },
     });

@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
+import { authFetch, refreshAccessToken } from '../lib/auth';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api';
 
@@ -47,7 +48,7 @@ export function AppShell({ title, subtitle, children }: AppShellProps) {
     const token = localStorage.getItem('flowops_access_token');
     if (!token) return router.replace('/');
 
-    fetch(`${API}/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
+    authFetch(`${API}/auth/me`)
       .then((response) => response.ok ? response.json() : null)
       .then((user) => {
         setRoles(user?.roles ?? []);
@@ -68,12 +69,14 @@ export function AppShell({ title, subtitle, children }: AppShellProps) {
         setPermissionsLoaded(true);
       })
       .catch(() => undefined);
-    fetch(`${API}/settings`, { headers: { Authorization: `Bearer ${token}` } })
+    authFetch(`${API}/settings`)
       .then((response) => response.ok ? response.json() : null)
       .then((settings) => {
         if (settings?.name) setCompanyName(settings.name);
       })
       .catch(() => undefined);
+    const refreshTimer = window.setInterval(() => { void refreshAccessToken(); }, 10 * 60 * 1000);
+    return () => window.clearInterval(refreshTimer);
   }, [router]);
 
   useEffect(() => {
