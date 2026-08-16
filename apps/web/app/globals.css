@@ -74,7 +74,23 @@ button, input, select { font: inherit; }
 }
 .field select { width:100%; min-width:0; border:1px solid var(--border); border-radius:10px; padding:12px; background: white; }
 .field input[type="file"] { padding:9px; font-size:13px; }
-.employee-form { display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap:16px; align-items:end; }
+.employee-auto-meta { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:12px; margin:20px 0 24px; padding:14px 16px; border:1px solid #dce9e7; border-radius:12px; background:#f7fbfa; }
+.employee-auto-meta div { display:grid; gap:4px; }
+.employee-auto-meta span { color:var(--muted); font-size:12px; font-weight:600; }
+.employee-auto-meta strong { color:#0f766e; font-size:14px; }
+.employee-auto-meta p { grid-column:1 / -1; margin:2px 0 0; color:var(--muted); font-size:12px; }
+.employee-form { display:grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap:18px 16px; align-items:end; }
+.employee-field-name { grid-column:span 6; }
+.employee-field-job, .employee-field-unit { grid-column:span 3; }
+.employee-field-email { grid-column:span 6; }
+.employee-field-corporate { grid-column:span 6; }
+.employee-field-department, .employee-field-shift, .employee-field-photo { grid-column:span 4; }
+.employee-field-status { grid-column:span 4; }
+.field-hint { color:var(--muted); font-size:12px; font-weight:400; }
+.file-picker { display:flex; align-items:center; gap:10px; min-width:0; min-height:44px; padding:6px 8px; border:1px solid var(--border); border-radius:10px; background:#fff; cursor:pointer; }
+.file-picker input { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+.file-picker span { flex:0 0 auto; padding:7px 10px; border-radius:7px; background:#e7f4f2; color:#0f766e; font-size:13px; font-weight:600; }
+.file-picker em { min-width:0; overflow:hidden; color:var(--muted); font-size:13px; font-style:normal; text-overflow:ellipsis; white-space:nowrap; }
 .employee-form .btn { height:44px; }
 .form-actions { grid-column:1 / -1; display:flex; gap:10px; align-items:center; }
 .form-actions .btn { min-width:180px; }
@@ -110,8 +126,8 @@ th { color:var(--muted); font-size:13px; font-weight:600; }
 .qr-code { display:block; width:280px; height:280px; margin:12px 0 8px; }
 .qr-badge-code { color:var(--text); font-size:22px; letter-spacing:.08em; }
 .qr-modal-actions { justify-content:center; margin-top:20px; }
-@media (max-width: 900px) { .employee-form, .shift-form, .activity-form, .operation-form { grid-template-columns: repeat(2, minmax(0, 1fr)); } .session-row { align-items:flex-start; flex-direction:column; } }
-@media (max-width: 600px) { .employee-form, .shift-form, .activity-form, .operation-form { grid-template-columns: 1fr; } .header { align-items:flex-start; } .header-actions { flex-wrap:wrap; justify-content:flex-end; } }
+@media (max-width: 900px) { .employee-form, .shift-form, .activity-form, .operation-form { grid-template-columns: repeat(2, minmax(0, 1fr)); } .employee-form > .field { grid-column:span 1; } .employee-field-name, .employee-field-email, .employee-field-corporate, .employee-field-photo { grid-column:1 / -1 !important; } .session-row { align-items:flex-start; flex-direction:column; } }
+@media (max-width: 600px) { .employee-form, .shift-form, .activity-form, .operation-form { grid-template-columns: 1fr; } .employee-form > .field { grid-column:1 / -1 !important; } .employee-auto-meta { grid-template-columns:1fr; } .employee-auto-meta p { grid-column:auto; } .header { align-items:flex-start; } .header-actions { flex-wrap:wrap; justify-content:flex-end; } }
 .error { color:#b42318; margin:12px 0; }
 .success { color:#067647; margin:12px 0; font-weight:600; }
 .login-page { display:grid; grid-template-columns:minmax(360px, 1.1fr) minmax(420px, .9fr); min-height:100vh; }
