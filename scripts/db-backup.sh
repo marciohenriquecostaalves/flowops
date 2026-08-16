@@ -2,6 +2,9 @@
 set -euo pipefail
 
 backup_dir="${1:-backups}"
+if [[ "$backup_dir" == "--" ]]; then
+  backup_dir="${2:-backups}"
+fi
 mkdir -p "$backup_dir"
 
 compose_args=()

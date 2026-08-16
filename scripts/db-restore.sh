@@ -2,6 +2,9 @@
 set -euo pipefail
 
 backup_file="${1:-}"
+if [[ "$backup_file" == "--" ]]; then
+  backup_file="${2:-}"
+fi
 
 if [[ -z "$backup_file" || ! -f "$backup_file" ]]; then
   echo "Uso: FLOWOPS_CONFIRM_RESTORE=YES pnpm db:restore -- caminho/do/backup.dump" >&2
