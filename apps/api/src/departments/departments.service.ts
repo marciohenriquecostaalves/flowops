@@ -8,9 +8,9 @@ import { canAccessUnit, scopedUnitWhere } from '../auth/unit-scope';
 export class DepartmentsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  list(tenantId: string, roles: string[] = [], unitIds: string[] = []) {
+  list(tenantId: string, roles: string[] = [], unitIds: string[] = [], selectedUnitId?: string) {
     return this.prisma.department.findMany({
-      where: scopedUnitWhere(tenantId, roles, unitIds),
+      where: scopedUnitWhere(tenantId, roles, unitIds, selectedUnitId),
       include: { unit: { select: { id: true, code: true, name: true } }, _count: { select: { employees: true, activities: true } } },
       orderBy: { name: 'asc' },
     });
@@ -32,8 +32,8 @@ export class DepartmentsService {
     }
   }
 
-  async update(tenantId: string, actorUserId: string, id: string, dto: UpdateDepartmentDto, roles: string[] = [], unitIds: string[] = []) {
-    const department = await this.prisma.department.findFirst({ where: { id, ...scopedUnitWhere(tenantId, roles, unitIds) } });
+  async update(tenantId: string, actorUserId: string, id: string, dto: UpdateDepartmentDto, roles: string[] = [], unitIds: string[] = [], selectedUnitId?: string) {
+    const department = await this.prisma.department.findFirst({ where: { id, ...scopedUnitWhere(tenantId, roles, unitIds, selectedUnitId) } });
     if (!department) throw new NotFoundException('Departamento não pertence à empresa');
     if (dto.unitId && dto.unitId !== department.unitId) {
       if (!canAccessUnit(roles, unitIds, dto.unitId)) throw new ForbiddenException('Filial não permitida');
@@ -55,9 +55,9 @@ export class DepartmentsService {
     }
   }
 
-  async remove(tenantId: string, actorUserId: string, id: string, roles: string[] = [], unitIds: string[] = []) {
+  async remove(tenantId: string, actorUserId: string, id: string, roles: string[] = [], unitIds: string[] = [], selectedUnitId?: string) {
     const department = await this.prisma.department.findFirst({
-      where: { id, ...scopedUnitWhere(tenantId, roles, unitIds) },
+      where: { id, ...scopedUnitWhere(tenantId, roles, unitIds, selectedUnitId) },
       include: { _count: { select: { employees: true, activities: true } } },
     });
     if (!department) throw new NotFoundException('Departamento não pertence à empresa');

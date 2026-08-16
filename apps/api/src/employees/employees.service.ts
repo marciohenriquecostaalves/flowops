@@ -9,9 +9,9 @@ import { canAccessUnit, scopedUnitWhere } from '../auth/unit-scope';
 export class EmployeesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  list(tenantId: string, userId?: string, roles: string[] = [], unitIds: string[] = []) {
+  list(tenantId: string, userId?: string, roles: string[] = [], unitIds: string[] = [], selectedUnitId?: string) {
     return this.prisma.employee.findMany({
-      where: { ...scopedUnitWhere(tenantId, roles, unitIds), ...(userId ? { userId } : {}) },
+      where: { ...scopedUnitWhere(tenantId, roles, unitIds, selectedUnitId), ...(userId ? { userId } : {}) },
       include: { department: true, shift: true, jobTitleRef: true, unit: true },
       orderBy: { name: 'asc' },
     });
@@ -84,8 +84,8 @@ export class EmployeesService {
     }
   }
 
-  async update(tenantId: string, actorUserId: string, id: string, dto: UpdateEmployeeDto, photoData?: string, roles: string[] = [], unitIds: string[] = [], primaryUnitId?: string) {
-    const employee = await this.prisma.employee.findFirst({ where: { id, ...scopedUnitWhere(tenantId, roles, unitIds) } });
+  async update(tenantId: string, actorUserId: string, id: string, dto: UpdateEmployeeDto, photoData?: string, roles: string[] = [], unitIds: string[] = [], primaryUnitId?: string, selectedUnitId?: string) {
+    const employee = await this.prisma.employee.findFirst({ where: { id, ...scopedUnitWhere(tenantId, roles, unitIds, selectedUnitId) } });
     if (!employee) throw new NotFoundException('Colaborador não encontrado');
 
     const unitId = dto.unitId ?? employee.unitId ?? primaryUnitId;

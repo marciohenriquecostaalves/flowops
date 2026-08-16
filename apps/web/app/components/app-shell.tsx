@@ -7,6 +7,7 @@ import { usePathname, useRouter } from 'next/navigation';
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api';
 
 type NavItem = { href: string; area?: string; areas?: string[]; label: string; icon: string; roles: string[] };
+type Unit = { id: string; code: string; name: string; isPrimary?: boolean };
 
 const items: NavItem[] = [
   { href: '/dashboard', area: 'dashboard', label: 'Visão geral', icon: '▦', roles: ['ADMIN', 'SUPERVISOR', 'OPERATOR', 'FOREMAN'] },
@@ -39,6 +40,8 @@ export function AppShell({ title, subtitle, children }: AppShellProps) {
   const [roles, setRoles] = useState<string[]>([]);
   const [accessAreas, setAccessAreas] = useState<string[]>([]);
   const [permissionsLoaded, setPermissionsLoaded] = useState(false);
+  const [units, setUnits] = useState<Unit[]>([]);
+  const [selectedUnitId, setSelectedUnitId] = useState('');
 
   useEffect(() => {
     const token = localStorage.getItem('flowops_access_token');
@@ -46,7 +49,24 @@ export function AppShell({ title, subtitle, children }: AppShellProps) {
 
     fetch(`${API}/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
       .then((response) => response.ok ? response.json() : null)
-      .then((user) => { setRoles(user?.roles ?? []); setAccessAreas(user?.accessAreas ?? []); setPermissionsLoaded(true); })
+      .then((user) => {
+        setRoles(user?.roles ?? []);
+        setAccessAreas(user?.accessAreas ?? []);
+        const availableUnits = (user?.units ?? []) as Unit[];
+        setUnits(availableUnits);
+        const stored = localStorage.getItem('flowops_selected_unit_id');
+        const selected = availableUnits.find((unit) => unit.id === stored) ?? availableUnits.find((unit) => unit.isPrimary) ?? availableUnits[0];
+        if (selected) {
+          setSelectedUnitId(selected.id);
+          if (stored !== selected.id) {
+            localStorage.setItem('flowops_selected_unit_id', selected.id);
+            window.location.reload();
+          }
+        } else {
+          localStorage.removeItem('flowops_selected_unit_id');
+        }
+        setPermissionsLoaded(true);
+      })
       .catch(() => undefined);
     fetch(`${API}/settings`, { headers: { Authorization: `Bearer ${token}` } })
       .then((response) => response.ok ? response.json() : null)
@@ -71,6 +91,12 @@ export function AppShell({ title, subtitle, children }: AppShellProps) {
     router.replace('/');
   }
 
+  function changeUnit(unitId: string) {
+    setSelectedUnitId(unitId);
+    localStorage.setItem('flowops_selected_unit_id', unitId);
+    window.location.reload();
+  }
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -92,7 +118,11 @@ export function AppShell({ title, subtitle, children }: AppShellProps) {
       <div className="app-workspace">
         <header className="app-topbar">
           <div><p className="page-kicker">{companyName}</p><h1>{title}</h1><p className="muted">{subtitle}</p></div>
-          <div className="topbar-user"><span className="topbar-avatar">{initials}</span><span>{companyName}</span></div>
+          <div className="topbar-context">
+            {units.length > 1 && <label className="unit-switcher"><span>Unidade ativa</span><select value={selectedUnitId} onChange={(event) => changeUnit(event.target.value)} aria-label="Selecionar unidade ativa">{units.map((unit) => <option key={unit.id} value={unit.id}>{unit.code} · {unit.name}</option>)}</select></label>}
+            {units.length === 1 && <span className="unit-current"><small>Unidade</small><strong>{units[0].code} · {units[0].name}</strong></span>}
+            <div className="topbar-user"><span className="topbar-avatar">{initials}</span><span>{companyName}</span></div>
+          </div>
         </header>
         <main className="app-content">{children}</main>
       </div>

@@ -11,6 +11,7 @@ import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
 import { ProvisionAccessDto } from './dto/provision-access.dto';
 import { UsersService } from '../users/users.service';
+import { selectedUnitId as getSelectedUnitId } from '../auth/unit-scope';
 
 @ApiTags('employees')
 @ApiBearerAuth()
@@ -23,7 +24,7 @@ export class EmployeesController {
   @Roles('ADMIN', 'SUPERVISOR', 'OPERATOR')
   @AccessAreas('employees', 'operations')
   list(@Req() req: any) {
-    return this.service.list(req.user.tenantId, req.user.roles?.includes('OPERATOR') ? req.user.sub : undefined, req.user.roles, req.user.unitIds);
+    return this.service.list(req.user.tenantId, req.user.roles?.includes('OPERATOR') ? req.user.sub : undefined, req.user.roles, req.user.unitIds, getSelectedUnitId(req));
   }
 
   @Post()
@@ -39,7 +40,7 @@ export class EmployeesController {
   @AccessAreas('employees')
   @UseInterceptors(FileInterceptor('photo', { limits: { fileSize: 2 * 1024 * 1024 } }))
   async update(@Req() req: any, @Param('id') id: string, @Body() dto: UpdateEmployeeDto, @UploadedFile() photo?: UploadedImage) {
-    return this.service.update(req.user.tenantId, req.user.sub, id, dto, this.photoData(photo), req.user.roles, req.user.unitIds, req.user.primaryUnitId);
+    return this.service.update(req.user.tenantId, req.user.sub, id, dto, this.photoData(photo), req.user.roles, req.user.unitIds, req.user.primaryUnitId, getSelectedUnitId(req));
   }
 
   @Post(':id/access')

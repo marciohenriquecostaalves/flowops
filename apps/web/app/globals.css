@@ -35,6 +35,12 @@ body {
 .page-kicker { margin:0; color:#0f766e; font-weight:700; font-size:13px; }
 .topbar-user { display:flex; align-items:center; gap:9px; color:var(--muted); font-size:13px; font-weight:600; }
 .topbar-avatar { width:33px; height:33px; border-radius:10px; font-size:12px; }
+.topbar-context { display:flex; align-items:center; gap:18px; }
+.unit-switcher { display:grid; gap:4px; min-width:210px; }
+.unit-switcher span, .unit-current small { color:var(--muted); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; }
+.unit-switcher select { width:100%; border:1px solid #cfe2df; border-radius:9px; padding:9px 30px 9px 10px; background:#f7fbfa; color:var(--text); font-size:13px; font-weight:600; }
+.unit-current { display:grid; gap:4px; min-width:180px; }
+.unit-current strong { color:var(--text); font-size:13px; }
 .app-content { max-width:1320px; margin:0 auto; padding:28px 42px 42px; }
 a { color: inherit; text-decoration: none; }
 button, input, select { font: inherit; }
@@ -259,6 +265,9 @@ th { color:var(--muted); font-size:13px; font-weight:600; }
   .app-topbar { padding:22px 20px; }
   .app-topbar h1 { font-size:22px; }
   .topbar-user { display:none; }
+  .topbar-context { width:100%; justify-content:flex-end; }
+  .unit-switcher { min-width:180px; }
+  .unit-current { min-width:0; }
   .app-content { padding:20px; }
   .settings-form { grid-template-columns:1fr; }
   .users-form { grid-template-columns:1fr; }

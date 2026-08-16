@@ -8,6 +8,7 @@ import { AccessAreasGuard } from '../auth/access-areas.guard';
 import { ActivitiesService } from './activities.service';
 import { CreateActivityDto } from './dto/create-activity.dto';
 import { UpdateActivityDto } from './dto/update-activity.dto';
+import { selectedUnitId as getSelectedUnitId } from '../auth/unit-scope';
 
 @ApiTags('activities')
 @ApiBearerAuth()
@@ -20,7 +21,7 @@ export class ActivitiesController {
   @Roles('ADMIN', 'SUPERVISOR', 'OPERATOR')
   @AccessAreas('activities', 'operations')
   list(@Req() req: any) {
-    return this.service.list(req.user.tenantId, req.user.roles, req.user.unitIds);
+    return this.service.list(req.user.tenantId, req.user.roles, req.user.unitIds, getSelectedUnitId(req));
   }
 
   @Post()
@@ -34,6 +35,6 @@ export class ActivitiesController {
   @Roles('ADMIN', 'SUPERVISOR')
   @AccessAreas('activities')
   update(@Req() req: any, @Param('id') id: string, @Body() dto: UpdateActivityDto) {
-    return this.service.update(req.user.tenantId, req.user.sub, id, dto, req.user.roles, req.user.unitIds);
+    return this.service.update(req.user.tenantId, req.user.sub, id, dto, req.user.roles, req.user.unitIds, getSelectedUnitId(req));
   }
 }

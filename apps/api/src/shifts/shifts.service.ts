@@ -8,9 +8,9 @@ import { canAccessUnit, scopedUnitWhere } from '../auth/unit-scope';
 export class ShiftsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  list(tenantId: string, roles: string[] = [], unitIds: string[] = []) {
+  list(tenantId: string, roles: string[] = [], unitIds: string[] = [], selectedUnitId?: string) {
     return this.prisma.shift.findMany({
-      where: scopedUnitWhere(tenantId, roles, unitIds),
+      where: scopedUnitWhere(tenantId, roles, unitIds, selectedUnitId),
       include: { unit: { select: { id: true, code: true, name: true } }, _count: { select: { employees: true } } },
       orderBy: { name: 'asc' },
     });
@@ -29,8 +29,8 @@ export class ShiftsService {
     }
   }
 
-  async update(tenantId: string, actorUserId: string, id: string, dto: UpdateShiftDto, roles: string[] = [], unitIds: string[] = []) {
-    const shift = await this.prisma.shift.findFirst({ where: { id, ...scopedUnitWhere(tenantId, roles, unitIds) } });
+  async update(tenantId: string, actorUserId: string, id: string, dto: UpdateShiftDto, roles: string[] = [], unitIds: string[] = [], selectedUnitId?: string) {
+    const shift = await this.prisma.shift.findFirst({ where: { id, ...scopedUnitWhere(tenantId, roles, unitIds, selectedUnitId) } });
     if (!shift) throw new NotFoundException('Turno não pertence à empresa');
     if (dto.unitId && dto.unitId !== shift.unitId) {
       if (!canAccessUnit(roles, unitIds, dto.unitId)) throw new ForbiddenException('Filial não permitida');

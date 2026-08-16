@@ -8,6 +8,7 @@ import { AccessAreasGuard } from '../auth/access-areas.guard';
 import { CreateDepartmentDto } from './dto/create-department.dto';
 import { UpdateDepartmentDto } from './dto/update-department.dto';
 import { DepartmentsService } from './departments.service';
+import { selectedUnitId as getSelectedUnitId } from '../auth/unit-scope';
 
 @ApiTags('departments')
 @ApiBearerAuth()
@@ -20,7 +21,7 @@ export class DepartmentsController {
 
   @Get()
   list(@Req() req: any) {
-    return this.service.list(req.user.tenantId, req.user.roles, req.user.unitIds);
+    return this.service.list(req.user.tenantId, req.user.roles, req.user.unitIds, getSelectedUnitId(req));
   }
 
   @Post()
@@ -30,11 +31,11 @@ export class DepartmentsController {
 
   @Patch(':id')
   update(@Req() req: any, @Param('id') id: string, @Body() dto: UpdateDepartmentDto) {
-    return this.service.update(req.user.tenantId, req.user.sub, id, dto, req.user.roles, req.user.unitIds);
+    return this.service.update(req.user.tenantId, req.user.sub, id, dto, req.user.roles, req.user.unitIds, getSelectedUnitId(req));
   }
 
   @Delete(':id')
   remove(@Req() req: any, @Param('id') id: string) {
-    return this.service.remove(req.user.tenantId, req.user.sub, id, req.user.roles, req.user.unitIds);
+    return this.service.remove(req.user.tenantId, req.user.sub, id, req.user.roles, req.user.unitIds, getSelectedUnitId(req));
   }
 }

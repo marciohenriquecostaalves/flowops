@@ -66,7 +66,8 @@ export default function EmployeesPage() {
 
   const headers = () => {
     const token = localStorage.getItem('flowops_access_token');
-    return token ? { Authorization: `Bearer ${token}` } : null;
+    const selectedUnitId = localStorage.getItem('flowops_selected_unit_id');
+    return token ? { Authorization: `Bearer ${token}`, ...(selectedUnitId ? { 'X-FlowOps-Unit-Id': selectedUnitId } : {}) } : null;
   };
 
   async function load() {
@@ -92,7 +93,10 @@ export default function EmployeesPage() {
     setShifts((await shiftsResponse.json()).filter((shift: Shift) => shift.active));
     setJobTitles((await jobTitlesResponse.json()).filter((jobTitle: JobTitle) => jobTitle.active));
     setEmailConfig(await emailConfigResponse.json());
-    setUnits((await unitsResponse.json()).filter((unit: BusinessUnit) => unit.active));
+    const nextUnits = (await unitsResponse.json()).filter((unit: BusinessUnit) => unit.active);
+    setUnits(nextUnits);
+    const selectedUnitId = localStorage.getItem('flowops_selected_unit_id');
+    if (!unitId && nextUnits[0]) setUnitId(nextUnits.find((unit: BusinessUnit) => unit.id === selectedUnitId)?.id ?? nextUnits[0].id);
     const me = await fetch(`${API}/auth/me`, { headers: authorization }); if (me.ok) setIsAdmin((await me.json()).roles.includes('ADMIN'));
     setLoading(false);
   }
@@ -159,7 +163,7 @@ export default function EmployeesPage() {
     setPhoto(null);
     setDepartmentId('');
     setShiftId('');
-    setUnitId('');
+    setUnitId(localStorage.getItem('flowops_selected_unit_id') ?? '');
     setStatus('ACTIVE');
     setEditing(null);
     await load();
@@ -190,7 +194,7 @@ export default function EmployeesPage() {
     setPhoto(null);
     setDepartmentId('');
     setShiftId('');
-    setUnitId('');
+    setUnitId(localStorage.getItem('flowops_selected_unit_id') ?? '');
     setStatus('ACTIVE');
   }
 

@@ -16,8 +16,8 @@ export class ReportsService {
     return employee.departmentId;
   }
 
-  async productivity(tenantId: string, filters: ReportFilters, roles: string[] = [], unitIds: string[] = []) {
-    const where: Prisma.ActivitySessionWhereInput = { ...scopedUnitWhere(tenantId, roles, unitIds), status: 'COMPLETED' };
+  async productivity(tenantId: string, filters: ReportFilters, roles: string[] = [], unitIds: string[] = [], selectedUnitId?: string) {
+    const where: Prisma.ActivitySessionWhereInput = { ...scopedUnitWhere(tenantId, roles, unitIds, selectedUnitId), status: 'COMPLETED' };
     const from = startOfDay(filters.from);
     const to = endOfDay(filters.to);
     if (from || to) where.endedAt = { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) };

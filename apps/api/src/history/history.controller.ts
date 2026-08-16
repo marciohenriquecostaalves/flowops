@@ -7,6 +7,7 @@ import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { HistoryQueryDto } from './dto/history-query.dto';
 import { HistoryService } from './history.service';
+import { selectedUnitId as getSelectedUnitId } from '../auth/unit-scope';
 
 @ApiTags('history')
 @ApiBearerAuth()
@@ -19,25 +20,25 @@ export class HistoryController {
 
   @Get('sessions')
   sessions(@Req() req: any, @Query() query: HistoryQueryDto) {
-    return this.service.scopeForUser(req.user.tenantId, req.user.sub, req.user.roles ?? [], req.user.unitIds ?? [])
+    return this.service.scopeForUser(req.user.tenantId, req.user.sub, req.user.roles ?? [], req.user.unitIds ?? [], getSelectedUnitId(req))
       .then((scope) => this.service.list(req.user.tenantId, query, scope));
   }
 
   @Get('sessions/export')
   export(@Req() req: any, @Query() query: HistoryQueryDto) {
-    return this.service.scopeForUser(req.user.tenantId, req.user.sub, req.user.roles ?? [], req.user.unitIds ?? [])
+    return this.service.scopeForUser(req.user.tenantId, req.user.sub, req.user.roles ?? [], req.user.unitIds ?? [], getSelectedUnitId(req))
       .then((scope) => this.service.export(req.user.tenantId, query, scope));
   }
 
   @Get('punches')
   punches(@Req() req: any, @Query() query: HistoryQueryDto) {
-    return this.service.scopeForUser(req.user.tenantId, req.user.sub, req.user.roles ?? [], req.user.unitIds ?? [])
+    return this.service.scopeForUser(req.user.tenantId, req.user.sub, req.user.roles ?? [], req.user.unitIds ?? [], getSelectedUnitId(req))
       .then((scope) => this.service.punches(req.user.tenantId, query, scope));
   }
 
   @Get('punches/export')
   punchesExport(@Req() req: any, @Query() query: HistoryQueryDto) {
-    return this.service.scopeForUser(req.user.tenantId, req.user.sub, req.user.roles ?? [], req.user.unitIds ?? [])
+    return this.service.scopeForUser(req.user.tenantId, req.user.sub, req.user.roles ?? [], req.user.unitIds ?? [], getSelectedUnitId(req))
       .then((scope) => this.service.punchesExport(req.user.tenantId, query, scope));
   }
 }

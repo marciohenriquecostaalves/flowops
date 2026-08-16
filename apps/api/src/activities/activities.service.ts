@@ -8,9 +8,9 @@ import { canAccessUnit, scopedUnitWhere } from '../auth/unit-scope';
 export class ActivitiesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  list(tenantId: string, roles: string[] = [], unitIds: string[] = []) {
+  list(tenantId: string, roles: string[] = [], unitIds: string[] = [], selectedUnitId?: string) {
     return this.prisma.activity.findMany({
-      where: scopedUnitWhere(tenantId, roles, unitIds),
+      where: scopedUnitWhere(tenantId, roles, unitIds, selectedUnitId),
       include: { department: true, unit: { select: { id: true, code: true, name: true } } },
       orderBy: { name: 'asc' },
     });
@@ -45,8 +45,8 @@ export class ActivitiesService {
     }
   }
 
-  async update(tenantId: string, actorUserId: string, id: string, dto: UpdateActivityDto, roles: string[] = [], unitIds: string[] = []) {
-    const activity = await this.prisma.activity.findFirst({ where: { id, ...scopedUnitWhere(tenantId, roles, unitIds) } });
+  async update(tenantId: string, actorUserId: string, id: string, dto: UpdateActivityDto, roles: string[] = [], unitIds: string[] = [], selectedUnitId?: string) {
+    const activity = await this.prisma.activity.findFirst({ where: { id, ...scopedUnitWhere(tenantId, roles, unitIds, selectedUnitId) } });
     if (!activity) throw new NotFoundException('Atividade não encontrada');
     const unitId = dto.unitId ?? activity.unitId;
     if (!unitId || !canAccessUnit(roles, unitIds, unitId)) throw new ForbiddenException('Filial não permitida');

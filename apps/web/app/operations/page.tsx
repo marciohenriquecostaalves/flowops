@@ -20,7 +20,7 @@ export default function OperationsPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
 
-  const auth = () => { const token = localStorage.getItem('flowops_access_token'); return token ? { Authorization: `Bearer ${token}` } : null; };
+  const auth = () => { const token = localStorage.getItem('flowops_access_token'); const selectedUnitId = localStorage.getItem('flowops_selected_unit_id'); return token ? { Authorization: `Bearer ${token}`, ...(selectedUnitId ? { 'X-FlowOps-Unit-Id': selectedUnitId } : {}) } : null; };
   async function load() {
     const headers = auth(); if (!headers) return router.replace('/');
     const [employeeResponse, activityResponse, sessionResponse, meResponse] = await Promise.all([

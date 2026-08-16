@@ -31,7 +31,8 @@ export default function Dashboard() {
   const [error, setError] = useState('');
 
   async function load(token: string) {
-    const headers = { Authorization: `Bearer ${token}` };
+    const selectedUnitId = localStorage.getItem('flowops_selected_unit_id');
+    const headers = { Authorization: `Bearer ${token}`, ...(selectedUnitId ? { 'X-FlowOps-Unit-Id': selectedUnitId } : {}) };
     const [me, sessions, productivity] = await Promise.all([
       fetch(`${API}/auth/me`, { headers }),
       fetch(`${API}/operations/sessions/active`, { headers }),
@@ -57,9 +58,10 @@ export default function Dashboard() {
     const token = localStorage.getItem('flowops_access_token');
     if (!token) return;
     setError('');
+    const selectedUnitId = localStorage.getItem('flowops_selected_unit_id');
     const response = await fetch(`${API}/operations/sessions/${id}/finish`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { Authorization: `Bearer ${token}`, ...(selectedUnitId ? { 'X-FlowOps-Unit-Id': selectedUnitId } : {}) },
     });
     if (!response.ok) {
       setError('Não foi possível finalizar a sessão.');

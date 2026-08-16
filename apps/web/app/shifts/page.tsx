@@ -34,7 +34,8 @@ export default function ShiftsPage() {
 
   const headers = () => {
     const token = localStorage.getItem('flowops_access_token');
-    return token ? { Authorization: `Bearer ${token}` } : null;
+    const selectedUnitId = localStorage.getItem('flowops_selected_unit_id');
+    return token ? { Authorization: `Bearer ${token}`, ...(selectedUnitId ? { 'X-FlowOps-Unit-Id': selectedUnitId } : {}) } : null;
   };
 
   async function load() {
@@ -48,7 +49,8 @@ export default function ShiftsPage() {
     setShifts(await response.json());
     const nextUnits = await unitsResponse.json();
     setUnits(nextUnits);
-    if (!unitId && nextUnits[0]) setUnitId(nextUnits[0].id);
+    const selectedUnitId = localStorage.getItem('flowops_selected_unit_id');
+    if (!unitId && nextUnits[0]) setUnitId(nextUnits.find((unit: BusinessUnit) => unit.id === selectedUnitId)?.id ?? nextUnits[0].id);
     setLoading(false);
   }
 
@@ -77,7 +79,7 @@ export default function ShiftsPage() {
     setStartTime('08:00');
     setEndTime('17:00');
     setToleranceMinutes('0');
-    setUnitId(units[0]?.id ?? '');
+    setUnitId(localStorage.getItem('flowops_selected_unit_id') ?? units[0]?.id ?? '');
     setEditing(null);
     await load();
   }
@@ -98,7 +100,7 @@ export default function ShiftsPage() {
     setStartTime('08:00');
     setEndTime('17:00');
     setToleranceMinutes('0');
-    setUnitId(units[0]?.id ?? '');
+    setUnitId(localStorage.getItem('flowops_selected_unit_id') ?? units[0]?.id ?? '');
   }
 
   async function toggleActive(shift: Shift) {

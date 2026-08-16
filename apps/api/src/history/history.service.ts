@@ -2,7 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/com
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { HistoryQueryDto } from './dto/history-query.dto';
-import { scopedUnitWhere } from '../auth/unit-scope';
+import { effectiveUnitIds, scopedUnitWhere } from '../auth/unit-scope';
 
 type HistoryScope = { employeeId?: string; departmentId?: string; unitIds?: string[] };
 
@@ -10,14 +10,15 @@ type HistoryScope = { employeeId?: string; departmentId?: string; unitIds?: stri
 export class HistoryService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async scopeForUser(tenantId: string, userId: string, roles: string[], unitIds: string[] = []): Promise<HistoryScope> {
+  async scopeForUser(tenantId: string, userId: string, roles: string[], unitIds: string[] = [], selectedUnitId?: string): Promise<HistoryScope> {
+    const scopedIds = effectiveUnitIds(roles, unitIds, selectedUnitId) ?? unitIds;
     if (roles.includes('FOREMAN')) {
       const employee = await this.prisma.employee.findFirst({
         where: { tenantId, userId },
         select: { departmentId: true },
       });
       if (!employee?.departmentId) throw new ForbiddenException('Encarregado precisa estar vinculado a um departamento');
-      return { departmentId: employee.departmentId, unitIds };
+      return { departmentId: employee.departmentId, unitIds: scopedIds };
     }
 
     if (roles.includes('OPERATOR')) {
@@ -26,10 +27,10 @@ export class HistoryService {
         select: { id: true },
       });
       if (!employee) throw new ForbiddenException('Operador precisa estar vinculado a um colaborador');
-      return { employeeId: employee.id, unitIds };
+      return { employeeId: employee.id, unitIds: scopedIds };
     }
 
-    return roles.includes('ADMIN') ? {} : { unitIds };
+    return roles.includes('ADMIN') && selectedUnitId === undefined ? {} : { unitIds: scopedIds };
   }
 
   async list(tenantId: string, query: HistoryQueryDto, scope: HistoryScope = {}) {

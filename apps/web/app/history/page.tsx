@@ -53,7 +53,8 @@ export default function HistoryPage() {
 
   function auth() {
     const token = localStorage.getItem('flowops_access_token');
-    return token ? { Authorization: `Bearer ${token}` } : null;
+    const selectedUnitId = localStorage.getItem('flowops_selected_unit_id');
+    return token ? { Authorization: `Bearer ${token}`, ...(selectedUnitId ? { 'X-FlowOps-Unit-Id': selectedUnitId } : {}) } : null;
   }
 
   async function load(nextFilters = filters, page = 1) {

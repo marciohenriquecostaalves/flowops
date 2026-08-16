@@ -14,9 +14,9 @@ import { scopedUnitWhere } from '../auth/unit-scope';
 export class OperationsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  private async assertSession(tenantId: string, id: string, roles: string[] = [], unitIds: string[] = []) {
+  private async assertSession(tenantId: string, id: string, roles: string[] = [], unitIds: string[] = [], selectedUnitId?: string) {
     const session = await this.prisma.activitySession.findFirst({
-      where: { id, ...scopedUnitWhere(tenantId, roles, unitIds) },
+      where: { id, ...scopedUnitWhere(tenantId, roles, unitIds, selectedUnitId) },
       include: { employee: true, activity: true },
     });
     if (!session) throw new NotFoundException('Sessão não encontrada');
@@ -33,12 +33,12 @@ export class OperationsService {
     if (!session || session.employee.userId !== userId) throw new ForbiddenException('Operador só pode alterar a própria sessão');
   }
 
-  async start(tenantId: string, actorUserId: string, dto: StartSessionDto, roles: string[] = [], unitIds: string[] = []) {
+  async start(tenantId: string, actorUserId: string, dto: StartSessionDto, roles: string[] = [], unitIds: string[] = [], selectedUnitId?: string) {
     const [employee, activity, running] = await Promise.all([
-      this.prisma.employee.findFirst({ where: { id: dto.employeeId, status: 'ACTIVE', ...scopedUnitWhere(tenantId, roles, unitIds) } }),
-      this.prisma.activity.findFirst({ where: { id: dto.activityId, status: 'ACTIVE', ...scopedUnitWhere(tenantId, roles, unitIds) } }),
+      this.prisma.employee.findFirst({ where: { id: dto.employeeId, status: 'ACTIVE', ...scopedUnitWhere(tenantId, roles, unitIds, selectedUnitId) } }),
+      this.prisma.activity.findFirst({ where: { id: dto.activityId, status: 'ACTIVE', ...scopedUnitWhere(tenantId, roles, unitIds, selectedUnitId) } }),
       this.prisma.activitySession.findFirst({
-        where: { employeeId: dto.employeeId, status: { in: ['RUNNING', 'PAUSED'] }, ...scopedUnitWhere(tenantId, roles, unitIds) },
+        where: { employeeId: dto.employeeId, status: { in: ['RUNNING', 'PAUSED'] }, ...scopedUnitWhere(tenantId, roles, unitIds, selectedUnitId) },
       }),
     ]);
 
@@ -62,8 +62,8 @@ export class OperationsService {
     return session;
   }
 
-  async pause(tenantId: string, actorUserId: string, id: string, roles: string[] = [], unitIds: string[] = []) {
-    const session = await this.assertSession(tenantId, id, roles, unitIds);
+  async pause(tenantId: string, actorUserId: string, id: string, roles: string[] = [], unitIds: string[] = [], selectedUnitId?: string) {
+    const session = await this.assertSession(tenantId, id, roles, unitIds, selectedUnitId);
     if (session.status !== 'RUNNING') {
       throw new BadRequestException('Somente sessões em execução podem ser pausadas');
     }
@@ -86,8 +86,8 @@ export class OperationsService {
     return updated;
   }
 
-  async resume(tenantId: string, actorUserId: string, id: string, roles: string[] = [], unitIds: string[] = []) {
-    const session = await this.assertSession(tenantId, id, roles, unitIds);
+  async resume(tenantId: string, actorUserId: string, id: string, roles: string[] = [], unitIds: string[] = [], selectedUnitId?: string) {
+    const session = await this.assertSession(tenantId, id, roles, unitIds, selectedUnitId);
     if (session.status !== 'PAUSED' || !session.pausedAt) {
       throw new BadRequestException('Somente sessões pausadas podem ser retomadas');
     }
@@ -110,8 +110,8 @@ export class OperationsService {
     return updated;
   }
 
-  async finish(tenantId: string, actorUserId: string, id: string, roles: string[] = [], unitIds: string[] = []) {
-    const session = await this.assertSession(tenantId, id, roles, unitIds);
+  async finish(tenantId: string, actorUserId: string, id: string, roles: string[] = [], unitIds: string[] = [], selectedUnitId?: string) {
+    const session = await this.assertSession(tenantId, id, roles, unitIds, selectedUnitId);
     if (!['RUNNING', 'PAUSED'].includes(session.status)) {
       throw new BadRequestException('Sessão já encerrada');
     }
@@ -145,8 +145,8 @@ export class OperationsService {
     return updated;
   }
 
-  async setUnits(tenantId: string, actorUserId: string, id: string, dto: UnitsDto, roles: string[] = [], unitIds: string[] = []) {
-    const session = await this.assertSession(tenantId, id, roles, unitIds);
+  async setUnits(tenantId: string, actorUserId: string, id: string, dto: UnitsDto, roles: string[] = [], unitIds: string[] = [], selectedUnitId?: string) {
+    const session = await this.assertSession(tenantId, id, roles, unitIds, selectedUnitId);
     if (!['RUNNING', 'PAUSED'].includes(session.status)) {
       throw new BadRequestException('Somente sessões abertas podem receber atualização de unidades');
     }
@@ -166,17 +166,17 @@ export class OperationsService {
     return employee.departmentId;
   }
 
-  active(tenantId: string, userId?: string, departmentId?: string, roles: string[] = [], unitIds: string[] = []) {
+  active(tenantId: string, userId?: string, departmentId?: string, roles: string[] = [], unitIds: string[] = [], selectedUnitId?: string) {
     return this.prisma.activitySession.findMany({
-      where: { status: { in: ['RUNNING', 'PAUSED'] }, ...scopedUnitWhere(tenantId, roles, unitIds), ...((userId || departmentId) ? { employee: { ...(userId ? { userId } : {}), ...(departmentId ? { departmentId } : {}) } } : {}) },
+      where: { status: { in: ['RUNNING', 'PAUSED'] }, ...scopedUnitWhere(tenantId, roles, unitIds, selectedUnitId), ...((userId || departmentId) ? { employee: { ...(userId ? { userId } : {}), ...(departmentId ? { departmentId } : {}) } } : {}) },
       include: { employee: true, activity: true },
       orderBy: { startedAt: 'asc' },
     });
   }
 
-  async productivity(tenantId: string, userId?: string, departmentId?: string, roles: string[] = [], unitIds: string[] = []) {
+  async productivity(tenantId: string, userId?: string, departmentId?: string, roles: string[] = [], unitIds: string[] = [], selectedUnitId?: string) {
     const sessions = await this.prisma.activitySession.findMany({
-      where: { status: 'COMPLETED', ...scopedUnitWhere(tenantId, roles, unitIds), ...((userId || departmentId) ? { employee: { ...(userId ? { userId } : {}), ...(departmentId ? { departmentId } : {}) } } : {}) },
+      where: { status: 'COMPLETED', ...scopedUnitWhere(tenantId, roles, unitIds, selectedUnitId), ...((userId || departmentId) ? { employee: { ...(userId ? { userId } : {}), ...(departmentId ? { departmentId } : {}) } } : {}) },
       include: { employee: true, activity: true },
       orderBy: { endedAt: 'desc' },
       take: 1000,

@@ -7,7 +7,7 @@ import { canAccessUnit, scopedUnitWhere } from '../auth/unit-scope';
 @Injectable()
 export class JobTitlesService {
   constructor(private readonly prisma: PrismaService) {}
-  list(tenantId: string, roles: string[] = [], unitIds: string[] = []) { return this.prisma.jobTitle.findMany({ where: scopedUnitWhere(tenantId, roles, unitIds), include: { unit: { select: { id: true, code: true, name: true } }, _count: { select: { employees: true } } }, orderBy: { name: 'asc' } }); }
+  list(tenantId: string, roles: string[] = [], unitIds: string[] = [], selectedUnitId?: string) { return this.prisma.jobTitle.findMany({ where: scopedUnitWhere(tenantId, roles, unitIds, selectedUnitId), include: { unit: { select: { id: true, code: true, name: true } }, _count: { select: { employees: true } } }, orderBy: { name: 'asc' } }); }
   async create(tenantId: string, actorUserId: string, dto: CreateJobTitleDto, roles: string[] = [], unitIds: string[] = [], primaryUnitId?: string) {
     const unitId = dto.unitId ?? primaryUnitId;
     if (!unitId || !canAccessUnit(roles, unitIds, unitId)) throw new ForbiddenException('Selecione uma filial permitida');
@@ -15,8 +15,8 @@ export class JobTitlesService {
     try { const jobTitle = await this.prisma.jobTitle.create({ data: { tenantId, unitId, name: dto.name } }); await this.audit(tenantId, actorUserId, 'JOB_TITLE_CREATED', jobTitle.id, { name: jobTitle.name }); return jobTitle; }
     catch { throw new ConflictException('Cargo já existe'); }
   }
-  async update(tenantId: string, actorUserId: string, id: string, dto: UpdateJobTitleDto, roles: string[] = [], unitIds: string[] = []) {
-    const jobTitle = await this.prisma.jobTitle.findFirst({ where: { id, ...scopedUnitWhere(tenantId, roles, unitIds) } });
+  async update(tenantId: string, actorUserId: string, id: string, dto: UpdateJobTitleDto, roles: string[] = [], unitIds: string[] = [], selectedUnitId?: string) {
+    const jobTitle = await this.prisma.jobTitle.findFirst({ where: { id, ...scopedUnitWhere(tenantId, roles, unitIds, selectedUnitId) } });
     if (!jobTitle) throw new NotFoundException('Cargo não pertence à empresa');
     if (dto.unitId && dto.unitId !== jobTitle.unitId) {
       if (!canAccessUnit(roles, unitIds, dto.unitId)) throw new ForbiddenException('Filial não permitida');

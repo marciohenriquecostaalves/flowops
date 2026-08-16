@@ -26,7 +26,8 @@ export default function ActivitiesPage() {
 
   const headers = () => {
     const token = localStorage.getItem('flowops_access_token');
-    return token ? { Authorization: `Bearer ${token}` } : null;
+    const selectedUnitId = localStorage.getItem('flowops_selected_unit_id');
+    return token ? { Authorization: `Bearer ${token}`, ...(selectedUnitId ? { 'X-FlowOps-Unit-Id': selectedUnitId } : {}) } : null;
   };
   async function load() {
     const authorization = headers();
@@ -39,11 +40,12 @@ export default function ActivitiesPage() {
     setDepartments(await departmentsResponse.json());
     const nextUnits = await unitsResponse.json();
     setUnits(nextUnits);
-    if (!unitId && nextUnits[0]) setUnitId(nextUnits[0].id);
+    const selectedUnitId = localStorage.getItem('flowops_selected_unit_id');
+    if (!unitId && nextUnits[0]) setUnitId(nextUnits.find((unit: BusinessUnit) => unit.id === selectedUnitId)?.id ?? nextUnits[0].id);
     setLoading(false);
   }
   useEffect(() => { void load(); }, []);
-  function reset() { setEditing(null); setName(''); setCode(''); setDepartmentId(''); setUnitId(units[0]?.id ?? ''); setTargetPerHour(''); setError(''); }
+  function reset() { setEditing(null); setName(''); setCode(''); setDepartmentId(''); setUnitId(localStorage.getItem('flowops_selected_unit_id') ?? units[0]?.id ?? ''); setTargetPerHour(''); setError(''); }
   function edit(activity: Activity) { setEditing(activity); setName(activity.name); setCode(activity.code); setUnitId(activity.unit.id); setDepartmentId(activity.department?.id ?? ''); setTargetPerHour(activity.targetPerHour ?? ''); setError(''); }
   async function submit(event: FormEvent) {
     event.preventDefault(); const authorization = headers(); if (!authorization) return router.replace('/');

@@ -20,7 +20,7 @@ export default function ReportsPage() {
   const [employees, setEmployees] = useState<Employee[]>([]); const [departments, setDepartments] = useState<Option[]>([]); const [shifts, setShifts] = useState<Shift[]>([]); const [activities, setActivities] = useState<Option[]>([]);
   const [filters, setFilters] = useState({ from: defaultFrom, to: defaultTo, employeeId: '', departmentId: '', shiftId: '', activityId: '' });
   const [report, setReport] = useState<Report | null>(null); const [loading, setLoading] = useState(true); const [error, setError] = useState(''); const [isForeman, setIsForeman] = useState(false);
-  function auth() { const token = localStorage.getItem('flowops_access_token'); return token ? { Authorization: `Bearer ${token}` } : null; }
+  function auth() { const token = localStorage.getItem('flowops_access_token'); const selectedUnitId = localStorage.getItem('flowops_selected_unit_id'); return token ? { Authorization: `Bearer ${token}`, ...(selectedUnitId ? { 'X-FlowOps-Unit-Id': selectedUnitId } : {}) } : null; }
   async function load(nextFilters = filters) {
     const headers = auth(); if (!headers) return router.replace('/');
     setLoading(true); setError('');
