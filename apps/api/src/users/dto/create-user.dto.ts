@@ -4,7 +4,7 @@ import { PASSWORD_PATTERN, PASSWORD_POLICY_MESSAGE } from '../../auth/password';
 export const USER_ROLES = ['ADMIN', 'SUPERVISOR', 'OPERATOR', 'FOREMAN'] as const;
 export type UserRoleName = (typeof USER_ROLES)[number];
 
-export const ACCESS_AREAS = ['dashboard', 'operations', 'employees', 'jobTitles', 'departments', 'shifts', 'activities', 'reports'] as const;
+export const ACCESS_AREAS = ['dashboard', 'operations', 'employees', 'jobTitles', 'departments', 'shifts', 'activities', 'reports', 'businessUnits'] as const;
 export type AccessArea = (typeof ACCESS_AREAS)[number];
 
 export function defaultAccessAreas(role: string): AccessArea[] {

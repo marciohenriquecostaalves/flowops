@@ -18,6 +18,7 @@ const items: NavItem[] = [
   { href: '/activities', area: 'activities', label: 'Atividades', icon: '✓', roles: ['ADMIN', 'SUPERVISOR'] },
   { href: '/reports', area: 'reports', label: 'Relatórios', icon: '▥', roles: ['ADMIN', 'SUPERVISOR', 'FOREMAN'] },
   { href: '/history', areas: ['operations', 'reports'], label: 'Histórico', icon: '◷', roles: ['ADMIN', 'SUPERVISOR', 'OPERATOR', 'FOREMAN'] },
+  { href: '/business-units', area: 'businessUnits', label: 'Matriz e filiais', icon: '⌂', roles: ['ADMIN', 'SUPERVISOR'] },
 ];
 
 function canAccess(item: NavItem, roles: string[], accessAreas: string[]) {

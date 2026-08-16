@@ -16,7 +16,7 @@ export class AuthService {
   async login(email: string, password: string) {
     const user = await this.prisma.user.findFirst({
       where: { email: email.trim().toLowerCase(), status: 'ACTIVE' },
-      include: { roles: { include: { role: true } } },
+      include: { roles: { include: { role: true } }, unitAccess: { include: { unit: true } } },
     });
 
     if (!user || !verifyPassword(password, user.passwordHash)) {
@@ -42,7 +42,7 @@ export class AuthService {
 
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
-      include: { roles: { include: { role: true } } },
+      include: { roles: { include: { role: true } }, unitAccess: { include: { unit: true } } },
     });
 
     if (!user || user.status !== 'ACTIVE' || user.tenantId !== payload.tenantId || !user.refreshTokenHash || !verifyToken(refreshToken, user.refreshTokenHash)) {
@@ -55,7 +55,7 @@ export class AuthService {
   async me(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      include: { roles: { include: { role: true } } },
+      include: { roles: { include: { role: true } }, unitAccess: { include: { unit: true } } },
     });
 
     if (!user) throw new UnauthorizedException();
@@ -68,6 +68,7 @@ export class AuthService {
       email: user.email,
       roles,
       accessAreas: user.accessAreas.length ? user.accessAreas : defaultAccessAreas(roles[0] ?? ''),
+      units: (user.unitAccess ?? []).map((access) => ({ id: access.unit.id, code: access.unit.code, name: access.unit.name, type: access.unit.type, isPrimary: access.isPrimary })),
     };
   }
 
@@ -78,6 +79,7 @@ export class AuthService {
     email: string;
     accessAreas: string[];
     roles: { role: { name: string } }[];
+    unitAccess?: { isPrimary: boolean; unit: { id: string; code: string; name: string; type: string } }[];
   }) {
     const roles = user.roles.map((item) => item.role.name);
     const accessAreas = user.accessAreas.length ? user.accessAreas : defaultAccessAreas(roles[0] ?? '');
@@ -86,6 +88,8 @@ export class AuthService {
       tenantId: user.tenantId,
       roles,
       accessAreas,
+      unitIds: (user.unitAccess ?? []).map((access) => access.unit.id),
+      primaryUnitId: user.unitAccess?.find((access) => access.isPrimary)?.unit.id ?? user.unitAccess?.[0]?.unit.id ?? null,
     };
 
     const accessToken = await this.jwt.signAsync(payload, {
@@ -116,6 +120,7 @@ export class AuthService {
         email: user.email,
         roles: payload.roles,
         accessAreas: payload.accessAreas,
+        units: (user.unitAccess ?? []).map((access) => ({ id: access.unit.id, code: access.unit.code, name: access.unit.name, type: access.unit.type, isPrimary: access.isPrimary })),
       },
     };
   }

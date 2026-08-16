@@ -1,0 +1,8 @@
+import { Module } from '@nestjs/common';
+import { AuthModule } from '../auth/auth.module';
+import { PrismaModule } from '../prisma/prisma.module';
+import { BusinessUnitsController } from './business-units.controller';
+import { BusinessUnitsService } from './business-units.service';
+
+@Module({ imports: [PrismaModule, AuthModule], controllers: [BusinessUnitsController], providers: [BusinessUnitsService] })
+export class BusinessUnitsModule {}

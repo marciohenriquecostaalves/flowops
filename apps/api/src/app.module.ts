@@ -16,6 +16,7 @@ import { ReportsModule } from './reports/reports.module';
 import { HistoryModule } from './history/history.module';
 import { RequestLoggingMiddleware } from './observability/request-logging.middleware';
 import { KiosksModule } from './kiosks/kiosks.module';
+import { BusinessUnitsModule } from './business-units/business-units.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { KiosksModule } from './kiosks/kiosks.module';
     ReportsModule,
     HistoryModule,
     KiosksModule,
+    BusinessUnitsModule,
   ],
 })
 export class AppModule implements NestModule {
