@@ -129,14 +129,21 @@ describe('access control (e2e)', () => {
     });
     expect(kiosk.status).toBe(201);
 
-    const expected = ['START', 'PAUSE', 'RESUME', 'FINISH'];
-    const actual: string[] = [];
-    for (const type of expected) {
-      const result = await kioskHttp('/kiosk/punch', kiosk.body.code, kiosk.body.token, badgeCode);
-      expect(result.status).toBe(201);
-      actual.push(result.body.type);
+    const previousDebounce = process.env.KIOSK_PUNCH_DEBOUNCE_SECONDS;
+    process.env.KIOSK_PUNCH_DEBOUNCE_SECONDS = '0';
+    try {
+      const expected = ['START', 'PAUSE', 'RESUME', 'FINISH'];
+      const actual: string[] = [];
+      for (const type of expected) {
+        const result = await kioskHttp('/kiosk/punch', kiosk.body.code, kiosk.body.token, badgeCode);
+        expect(result.status).toBe(201);
+        actual.push(result.body.type);
+      }
+      expect(actual).toEqual(expected);
+    } finally {
+      if (previousDebounce === undefined) delete process.env.KIOSK_PUNCH_DEBOUNCE_SECONDS;
+      else process.env.KIOSK_PUNCH_DEBOUNCE_SECONDS = previousDebounce;
     }
-    expect(actual).toEqual(expected);
 
     const rotated = await http(`/kiosk/devices/${kiosk.body.id}/token`, {
       method: 'POST',
@@ -146,7 +153,41 @@ describe('access control (e2e)', () => {
     expect(rotated.body.token).toBeTruthy();
     expect(rotated.body.token).not.toBe(kiosk.body.token);
     expect((await kioskHttp('/kiosk/punch', kiosk.body.code, kiosk.body.token, badgeCode)).status).toBe(401);
-    expect((await kioskHttp('/kiosk/punch', kiosk.body.code, rotated.body.token, badgeCode)).status).toBe(201);
+    const previousDebounceAfterFinish = process.env.KIOSK_PUNCH_DEBOUNCE_SECONDS;
+    process.env.KIOSK_PUNCH_DEBOUNCE_SECONDS = '0';
+    try {
+      expect((await kioskHttp('/kiosk/punch', kiosk.body.code, rotated.body.token, badgeCode)).status).toBe(201);
+    } finally {
+      if (previousDebounceAfterFinish === undefined) delete process.env.KIOSK_PUNCH_DEBOUNCE_SECONDS;
+      else process.env.KIOSK_PUNCH_DEBOUNCE_SECONDS = previousDebounceAfterFinish;
+    }
+  });
+
+  it('blocks inactive employees and concurrent duplicate punches', async () => {
+    const badgeCode = `${prefix}-FOREMAN-BADGE`.toUpperCase();
+    await prisma.employee.update({ where: { id: employeeIds.FOREMAN }, data: { badgeCode, status: 'ACTIVE' } });
+    const kiosk = await http('/kiosk/devices', {
+      method: 'POST',
+      token: adminToken,
+      body: { name: `${prefix} Quiosque Protegido`, activityId },
+    });
+    expect(kiosk.status).toBe(201);
+
+    const previousDebounce = process.env.KIOSK_PUNCH_DEBOUNCE_SECONDS;
+    process.env.KIOSK_PUNCH_DEBOUNCE_SECONDS = '5';
+    try {
+      const concurrent = await Promise.all([
+        kioskHttp('/kiosk/punch', kiosk.body.code, kiosk.body.token, badgeCode),
+        kioskHttp('/kiosk/punch', kiosk.body.code, kiosk.body.token, badgeCode),
+      ]);
+      expect(concurrent.map((result) => result.status).sort()).toEqual([201, 409]);
+
+      await prisma.employee.update({ where: { id: employeeIds.FOREMAN }, data: { status: 'INACTIVE' } });
+      expect((await kioskHttp('/kiosk/punch', kiosk.body.code, kiosk.body.token, badgeCode)).status).toBe(404);
+    } finally {
+      if (previousDebounce === undefined) delete process.env.KIOSK_PUNCH_DEBOUNCE_SECONDS;
+      else process.env.KIOSK_PUNCH_DEBOUNCE_SECONDS = previousDebounce;
+    }
   });
 
   it('generates a unique numeric badge automatically for new employees', async () => {

@@ -15,6 +15,15 @@ describe('environment validation', () => {
     expect(validateEnv({ ...valid, API_PORT: '4100' }).API_PORT).toBe(4100);
   });
 
+  it('uses a five-second kiosk punch debounce by default', () => {
+    expect(validateEnv(valid).KIOSK_PUNCH_DEBOUNCE_SECONDS).toBe(5);
+  });
+
+  it('rejects an invalid kiosk punch debounce', () => {
+    expect(() => validateEnv({ ...valid, KIOSK_PUNCH_DEBOUNCE_SECONDS: '301' }))
+      .toThrow('KIOSK_PUNCH_DEBOUNCE_SECONDS');
+  });
+
   it('rejects placeholder secrets in production', () => {
     expect(() => validateEnv({ ...valid, NODE_ENV: 'production', JWT_ACCESS_SECRET: 'replace-me' }))
       .toThrow('JWT_ACCESS_SECRET');

@@ -18,6 +18,8 @@ const nextPunchByType: Record<ProductionPunchType, ProductionPunchType> = {
   FINISH: 'START',
 };
 
+const DEFAULT_PUNCH_DEBOUNCE_SECONDS = 5;
+
 @Injectable()
 export class KiosksService {
   constructor(private readonly prisma: PrismaService) {}
@@ -162,6 +164,20 @@ export class KiosksService {
 
     try {
       return await this.prisma.$transaction(async (tx) => {
+        const now = new Date();
+        const lockKey = `${kiosk.tenantId}:${employee.id}`;
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`;
+
+        const latestPunch = await tx.productionPunch.findFirst({
+          where: { tenantId: kiosk.tenantId, employeeId: employee.id },
+          orderBy: { recordedAt: 'desc' },
+          select: { recordedAt: true },
+        });
+        const debounceSeconds = punchDebounceSeconds();
+        if (latestPunch && now.getTime() - latestPunch.recordedAt.getTime() < debounceSeconds * 1000) {
+          throw new ConflictException(`Batida já registrada. Aguarde ${debounceSeconds} segundos.`);
+        }
+
         const session = await tx.activitySession.findFirst({
           where: { tenantId: kiosk.tenantId, employeeId: employee.id, status: { in: ['RUNNING', 'PAUSED'] } },
           orderBy: { startedAt: 'desc' },
@@ -174,8 +190,6 @@ export class KiosksService {
         let type: ProductionPunchType;
         let sequence: number;
         let updatedSession;
-        const now = new Date();
-
         if (!session) {
           type = 'START';
           sequence = 1;
@@ -261,6 +275,11 @@ export class KiosksService {
   private audit(tenantId: string, userId: string, action: string, entityId: string, metadata: Prisma.InputJsonValue) {
     return this.prisma.auditLog.create({ data: { tenantId, userId, action, entity: 'KIOSK', entityId, metadata } });
   }
+}
+
+function punchDebounceSeconds() {
+  const configured = Number(process.env.KIOSK_PUNCH_DEBOUNCE_SECONDS ?? DEFAULT_PUNCH_DEBOUNCE_SECONDS);
+  return Number.isInteger(configured) && configured >= 0 ? configured : DEFAULT_PUNCH_DEBOUNCE_SECONDS;
 }
 
 function hashToken(value: string) {

@@ -15,6 +15,11 @@ export function validateEnv(config: Record<string, unknown>) {
     throw new Error('API_PORT deve ser um número inteiro entre 1 e 65535');
   }
 
+  const punchDebounceSeconds = Number(config.KIOSK_PUNCH_DEBOUNCE_SECONDS ?? 5);
+  if (!Number.isInteger(punchDebounceSeconds) || punchDebounceSeconds < 0 || punchDebounceSeconds > 300) {
+    throw new Error('KIOSK_PUNCH_DEBOUNCE_SECONDS deve ser um número inteiro entre 0 e 300');
+  }
+
   if (config.NODE_ENV === 'production' || config.NODE_ENV === 'staging') {
     for (const name of ['JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET']) {
       const value = String(config[name]).toLowerCase();
@@ -24,5 +29,5 @@ export function validateEnv(config: Record<string, unknown>) {
     }
   }
 
-  return { ...config, API_PORT: apiPort };
+  return { ...config, API_PORT: apiPort, KIOSK_PUNCH_DEBOUNCE_SECONDS: punchDebounceSeconds };
 }
