@@ -22,17 +22,25 @@ type Productivity = {
   productiveSeconds: number;
   productivity: number | null;
 };
+type UnitRanking = { id: string; label: string; sessions: number; units: number; productiveSeconds: number; productivity: number | null; achievementPercent: number | null };
+type CorporateOverview = { byUnit: UnitRanking[]; summary: { sessions: number; units: number; productiveSeconds: number; productivity: number | null; achievementPercent: number | null } };
+
+function dateForInput(date: Date) { return date.toISOString().slice(0, 10); }
 
 export default function Dashboard() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [active, setActive] = useState<ActiveSession[]>([]);
   const [ranking, setRanking] = useState<Productivity[]>([]);
+  const [corporateOverview, setCorporateOverview] = useState<CorporateOverview | null>(null);
   const [error, setError] = useState('');
 
   async function load(token: string) {
     const selectedUnitId = localStorage.getItem('flowops_selected_unit_id');
-    const headers = { Authorization: `Bearer ${token}`, ...(selectedUnitId ? { 'X-FlowOps-Unit-Id': selectedUnitId } : {}) };
+    const baseHeaders = { Authorization: `Bearer ${token}` };
+    const headers = { ...baseHeaders, ...(selectedUnitId ? { 'X-FlowOps-Unit-Id': selectedUnitId } : {}) };
+    const from = dateForInput(new Date(Date.now() - 29 * 24 * 60 * 60 * 1000));
+    const to = dateForInput(new Date());
     const [me, sessions, productivity] = await Promise.all([
       fetch(`${API}/auth/me`, { headers }),
       fetch(`${API}/operations/sessions/active`, { headers }),
@@ -43,6 +51,9 @@ export default function Dashboard() {
     setUser(await me.json());
     if (sessions.ok) setActive(await sessions.json());
     if (productivity.ok) setRanking(await productivity.json());
+    const overview = await fetch(`${API}/reports/overview?from=${from}&to=${to}`, { headers: baseHeaders });
+    if (overview.ok) setCorporateOverview(await overview.json());
+    else setCorporateOverview(null);
   }
 
   useEffect(() => {
@@ -100,6 +111,11 @@ export default function Dashboard() {
             </div>
           ))
         )}
+      </section>}
+
+      {!isForeman && corporateOverview && corporateOverview.byUnit.length > 1 && <section className="card corporate-overview" style={{ marginBottom: 16 }}>
+        <div className="report-heading"><div><h2>Visão consolidada por unidade</h2><p className="muted">Comparativo das unidades autorizadas nos últimos 30 dias.</p></div><span className="overview-total">{corporateOverview.summary.units} unidades produzidas</span></div>
+        <div className="table-wrap"><table><thead><tr><th>Unidade</th><th>Sessões</th><th>Produção</th><th>Produtividade</th><th>Meta</th></tr></thead><tbody>{corporateOverview.byUnit.map((row) => <tr key={row.id}><td><strong>{row.label}</strong></td><td>{row.sessions}</td><td>{row.units} un.</td><td>{row.productivity === null ? 'Em apuração' : `${row.productivity.toFixed(1)}/h`}</td><td>{row.achievementPercent === null ? '—' : `${row.achievementPercent.toFixed(1)}%`}</td></tr>)}</tbody></table></div>
       </section>}
 
       {!isForeman && <section className="card">
