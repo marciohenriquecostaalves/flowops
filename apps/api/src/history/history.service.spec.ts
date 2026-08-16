@@ -13,7 +13,7 @@ describe('HistoryService', () => {
 
   it('scopes an operator to the linked employee', async () => {
     prisma.employee.findFirst.mockResolvedValue({ id: 'employee-a' });
-    await expect(service.scopeForUser('tenant-a', 'user-a', ['OPERATOR'])).resolves.toEqual({ employeeId: 'employee-a' });
+    await expect(service.scopeForUser('tenant-a', 'user-a', ['OPERATOR'])).resolves.toEqual({ employeeId: 'employee-a', unitIds: [] });
   });
 
   it('rejects a foreman without a responsible department', async () => {

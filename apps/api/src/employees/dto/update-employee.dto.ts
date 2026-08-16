@@ -37,4 +37,8 @@ export class UpdateEmployeeDto {
   @IsOptional()
   @IsString()
   shiftId?: string | null;
+
+  @IsOptional()
+  @IsString()
+  unitId?: string;
 }

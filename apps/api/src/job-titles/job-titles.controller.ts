@@ -12,7 +12,7 @@ import { JobTitlesService } from './job-titles.service';
 @ApiTags('job-titles') @ApiBearerAuth() @UseGuards(JwtAuthGuard, RolesGuard, AccessAreasGuard) @Roles('ADMIN', 'SUPERVISOR') @AccessAreas('jobTitles') @Controller('job-titles')
 export class JobTitlesController {
   constructor(private readonly service: JobTitlesService) {}
-  @Get() list(@Req() req: any) { return this.service.list(req.user.tenantId); }
-  @Post() create(@Req() req: any, @Body() dto: CreateJobTitleDto) { return this.service.create(req.user.tenantId, req.user.sub, dto); }
-  @Patch(':id') update(@Req() req: any, @Param('id') id: string, @Body() dto: UpdateJobTitleDto) { return this.service.update(req.user.tenantId, req.user.sub, id, dto); }
+  @Get() list(@Req() req: any) { return this.service.list(req.user.tenantId, req.user.roles, req.user.unitIds); }
+  @Post() create(@Req() req: any, @Body() dto: CreateJobTitleDto) { return this.service.create(req.user.tenantId, req.user.sub, dto, req.user.roles, req.user.unitIds, req.user.primaryUnitId); }
+  @Patch(':id') update(@Req() req: any, @Param('id') id: string, @Body() dto: UpdateJobTitleDto) { return this.service.update(req.user.tenantId, req.user.sub, id, dto, req.user.roles, req.user.unitIds); }
 }

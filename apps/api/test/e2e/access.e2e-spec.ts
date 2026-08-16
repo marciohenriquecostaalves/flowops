@@ -17,6 +17,7 @@ describe('access control (e2e)', () => {
   let activityId: string;
   let adminToken: string;
   let operatorToken: string;
+  let supervisorUserId: string;
   const password = 'FlowOps@2026';
   const prefix = `e2e-${Date.now()}`;
   const employeeIds: Record<string, string> = {};
@@ -35,9 +36,10 @@ describe('access control (e2e)', () => {
 
     const tenant = await prisma.tenant.create({ data: { name: `${prefix} Tenant`, slug: prefix } });
     tenantId = tenant.id;
+    const unit = await prisma.businessUnit.create({ data: { tenantId, name: `${prefix} Matriz`, code: 'MATRIZ', type: 'HEADQUARTERS' } });
     const roles = await Promise.all(['ADMIN', 'SUPERVISOR', 'OPERATOR', 'FOREMAN'].map((name) => prisma.role.create({ data: { tenantId, name } })));
     const adminRole = roles.find((role) => role.name === 'ADMIN')!;
-    await prisma.user.create({
+    const admin = await prisma.user.create({
       data: {
         tenantId,
         name: `${prefix} ADMIN`,
@@ -46,9 +48,10 @@ describe('access control (e2e)', () => {
         roles: { create: { roleId: adminRole.id } },
       },
     });
-    const department = await prisma.department.create({ data: { tenantId, name: `${prefix} Operação` } });
-    const shift = await prisma.shift.create({ data: { tenantId, name: `${prefix} Turno`, startTime: '07:00', endTime: '16:48' } });
-    const activity = await prisma.activity.create({ data: { tenantId, name: `${prefix} Separação`, code: `${prefix}-SEP`, departmentId: department.id } });
+    await prisma.userUnitAccess.create({ data: { userId: admin.id, unitId: unit.id, isPrimary: true } });
+    const department = await prisma.department.create({ data: { tenantId, unitId: unit.id, name: `${prefix} Operação` } });
+    const shift = await prisma.shift.create({ data: { tenantId, unitId: unit.id, name: `${prefix} Turno`, startTime: '07:00', endTime: '16:48' } });
+    const activity = await prisma.activity.create({ data: { tenantId, unitId: unit.id, name: `${prefix} Separação`, code: `${prefix}-SEP`, departmentId: department.id } });
     departmentId = department.id;
     shiftId = shift.id;
     activityId = activity.id;
@@ -60,6 +63,7 @@ describe('access control (e2e)', () => {
       const employee = await prisma.employee.create({
         data: {
           tenantId,
+          unitId: unit.id,
           employeeCode: `${prefix}-${role}`,
           name: `${prefix} ${role}`,
           departmentId,
@@ -75,6 +79,10 @@ describe('access control (e2e)', () => {
         body: { email, password, role },
       });
       expect(provision.status).toBe(201);
+      if (role === 'SUPERVISOR') {
+        const provisionedUser = await prisma.user.findUnique({ where: { tenantId_email: { tenantId, email } }, select: { id: true } });
+        supervisorUserId = provisionedUser!.id;
+      }
     }
 
     operatorToken = (await login(userEmails.find((email) => email.includes('-operator@'))!, password)).accessToken;
@@ -117,6 +125,27 @@ describe('access control (e2e)', () => {
     const revoke = await http(`/employees/${employeeIds.OPERATOR}/access`, { method: 'DELETE', token: adminToken });
     expect(revoke.status).toBe(200);
     expect((await http('/operations/sessions/active', { token: operatorToken })).status).toBe(401);
+  });
+
+  it('keeps branch data isolated for users assigned to that branch', async () => {
+    const branch = await http('/business-units', { method: 'POST', token: adminToken, body: { name: `${prefix} Filial`, code: `${prefix.slice(0, 8).toUpperCase()}-F`, type: 'BRANCH' } });
+    expect(branch.status).toBe(201);
+    const branchDepartment = await http('/departments', { method: 'POST', token: adminToken, body: { name: `${prefix} Filial Operação`, unitId: branch.body.id } });
+    expect(branchDepartment.status).toBe(201);
+    const branchEmployee = await http('/employees', { method: 'POST', token: adminToken, body: { name: `${prefix} Filial Colaborador`, unitId: branch.body.id, departmentId: branchDepartment.body.id } });
+    expect(branchEmployee.status).toBe(201);
+
+    const assign = await http(`/users/${supervisorUserId}/units`, { method: 'PATCH', token: adminToken, body: { unitIds: [branch.body.id] } });
+    expect(assign.status).toBe(200);
+
+    const scopedEmployees = await http('/employees', { token: (await login(userEmails.find((email) => email.includes('-supervisor@'))!, password)).accessToken });
+    expect(scopedEmployees.status).toBe(200);
+    expect(scopedEmployees.body).toHaveLength(1);
+    expect(scopedEmployees.body[0].id).toBe(branchEmployee.body.id);
+    const scopedDepartments = await http('/departments', { token: (await login(userEmails.find((email) => email.includes('-supervisor@'))!, password)).accessToken });
+    expect(scopedDepartments.status).toBe(200);
+    expect(scopedDepartments.body).toHaveLength(1);
+    expect(scopedDepartments.body[0].id).toBe(branchDepartment.body.id);
   });
 
   it('registers the four kiosk punches in sequence', async () => {

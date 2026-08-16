@@ -23,7 +23,7 @@ export class EmployeesController {
   @Roles('ADMIN', 'SUPERVISOR', 'OPERATOR')
   @AccessAreas('employees', 'operations')
   list(@Req() req: any) {
-    return this.service.list(req.user.tenantId, req.user.roles?.includes('OPERATOR') ? req.user.sub : undefined);
+    return this.service.list(req.user.tenantId, req.user.roles?.includes('OPERATOR') ? req.user.sub : undefined, req.user.roles, req.user.unitIds);
   }
 
   @Post()
@@ -31,7 +31,7 @@ export class EmployeesController {
   @AccessAreas('employees')
   @UseInterceptors(FileInterceptor('photo', { limits: { fileSize: 2 * 1024 * 1024 } }))
   async create(@Req() req: any, @Body() dto: CreateEmployeeDto, @UploadedFile() photo?: UploadedImage) {
-    return this.service.create(req.user.tenantId, req.user.sub, dto, this.photoData(photo));
+    return this.service.create(req.user.tenantId, req.user.sub, dto, this.photoData(photo), req.user.roles, req.user.unitIds, req.user.primaryUnitId);
   }
 
   @Patch(':id')
@@ -39,7 +39,7 @@ export class EmployeesController {
   @AccessAreas('employees')
   @UseInterceptors(FileInterceptor('photo', { limits: { fileSize: 2 * 1024 * 1024 } }))
   async update(@Req() req: any, @Param('id') id: string, @Body() dto: UpdateEmployeeDto, @UploadedFile() photo?: UploadedImage) {
-    return this.service.update(req.user.tenantId, req.user.sub, id, dto, this.photoData(photo));
+    return this.service.update(req.user.tenantId, req.user.sub, id, dto, this.photoData(photo), req.user.roles, req.user.unitIds, req.user.primaryUnitId);
   }
 
   @Post(':id/access')

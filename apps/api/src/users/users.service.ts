@@ -11,7 +11,7 @@ export class UsersService {
   async list(tenantId: string) {
     return this.prisma.user.findMany({
       where: { tenantId, status: 'ACTIVE' },
-      select: { id: true, name: true, email: true, status: true, createdAt: true, updatedAt: true, accessAreas: true, employee: { select: { id: true, name: true, employeeCode: true } }, roles: { select: { role: { select: { name: true } } } } },
+      select: { id: true, name: true, email: true, status: true, createdAt: true, updatedAt: true, accessAreas: true, employee: { select: { id: true, name: true, employeeCode: true } }, roles: { select: { role: { select: { name: true } } } }, unitAccess: { select: { unit: { select: { id: true, code: true, name: true } }, isPrimary: true } } },
       orderBy: { name: 'asc' },
     });
   }
@@ -101,6 +101,20 @@ export class UsersService {
     return { ok: true };
   }
 
+  async updateUnits(tenantId: string, actorId: string, id: string, unitIds: string[]) {
+    const user = await this.userForTenant(tenantId, id);
+    const uniqueUnitIds = [...new Set(unitIds)];
+    const units = await this.prisma.businessUnit.findMany({ where: { tenantId, id: { in: uniqueUnitIds }, active: true }, select: { id: true } });
+    if (units.length !== uniqueUnitIds.length) throw new NotFoundException('Uma ou mais filiais não pertencem à empresa ou estão inativas');
+    await this.prisma.$transaction(async (tx) => {
+      await tx.userUnitAccess.deleteMany({ where: { userId: id } });
+      await tx.userUnitAccess.createMany({ data: uniqueUnitIds.map((unitId, index) => ({ userId: id, unitId, isPrimary: index === 0 })) });
+      await tx.user.update({ where: { id }, data: { refreshTokenHash: null } });
+    });
+    await this.audit(tenantId, actorId, 'USER_UNITS_UPDATED', id, { before: user.unitAccess?.map((access) => access.unitId) ?? [], units: uniqueUnitIds });
+    return this.prisma.user.findUnique({ where: { id }, select: { id: true, unitAccess: { select: { unit: { select: { id: true, code: true, name: true } }, isPrimary: true } } } });
+  }
+
   async revokeEmployeeAccess(tenantId: string, actorId: string, employeeId: string) {
     const employee = await this.prisma.employee.findFirst({ where: { id: employeeId, tenantId } });
     if (!employee) throw new NotFoundException('Colaborador não encontrado');
@@ -122,7 +136,7 @@ export class UsersService {
   }
 
   private async userForTenant(tenantId: string, id: string) {
-    const user = await this.prisma.user.findFirst({ where: { id, tenantId }, include: { employee: true, roles: { include: { role: true } } } });
+    const user = await this.prisma.user.findFirst({ where: { id, tenantId }, include: { employee: true, roles: { include: { role: true } }, unitAccess: true } });
     if (!user) throw new NotFoundException('Usuário não pertence à empresa');
     return user;
   }

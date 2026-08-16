@@ -19,25 +19,25 @@ export class HistoryController {
 
   @Get('sessions')
   sessions(@Req() req: any, @Query() query: HistoryQueryDto) {
-    return this.service.scopeForUser(req.user.tenantId, req.user.sub, req.user.roles ?? [])
+    return this.service.scopeForUser(req.user.tenantId, req.user.sub, req.user.roles ?? [], req.user.unitIds ?? [])
       .then((scope) => this.service.list(req.user.tenantId, query, scope));
   }
 
   @Get('sessions/export')
   export(@Req() req: any, @Query() query: HistoryQueryDto) {
-    return this.service.scopeForUser(req.user.tenantId, req.user.sub, req.user.roles ?? [])
+    return this.service.scopeForUser(req.user.tenantId, req.user.sub, req.user.roles ?? [], req.user.unitIds ?? [])
       .then((scope) => this.service.export(req.user.tenantId, query, scope));
   }
 
   @Get('punches')
   punches(@Req() req: any, @Query() query: HistoryQueryDto) {
-    return this.service.scopeForUser(req.user.tenantId, req.user.sub, req.user.roles ?? [])
+    return this.service.scopeForUser(req.user.tenantId, req.user.sub, req.user.roles ?? [], req.user.unitIds ?? [])
       .then((scope) => this.service.punches(req.user.tenantId, query, scope));
   }
 
   @Get('punches/export')
   punchesExport(@Req() req: any, @Query() query: HistoryQueryDto) {
-    return this.service.scopeForUser(req.user.tenantId, req.user.sub, req.user.roles ?? [])
+    return this.service.scopeForUser(req.user.tenantId, req.user.sub, req.user.roles ?? [], req.user.unitIds ?? [])
       .then((scope) => this.service.punchesExport(req.user.tenantId, query, scope));
   }
 }

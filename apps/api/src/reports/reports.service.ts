@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { scopedUnitWhere } from '../auth/unit-scope';
 
 type ReportFilters = { from?: string; to?: string; departmentId?: string; shiftId?: string; employeeId?: string; activityId?: string };
 type ReportSession = { units: number; productiveSeconds: number; employee: { id: string; name: string; employeeCode: string; department: { id: string; name: string } | null; shift: { id: string; name: string } | null }; activity: { id: string; name: string; code: string; targetPerHour: Prisma.Decimal | null } };
@@ -15,8 +16,8 @@ export class ReportsService {
     return employee.departmentId;
   }
 
-  async productivity(tenantId: string, filters: ReportFilters) {
-    const where: Prisma.ActivitySessionWhereInput = { tenantId, status: 'COMPLETED' };
+  async productivity(tenantId: string, filters: ReportFilters, roles: string[] = [], unitIds: string[] = []) {
+    const where: Prisma.ActivitySessionWhereInput = { ...scopedUnitWhere(tenantId, roles, unitIds), status: 'COMPLETED' };
     const from = startOfDay(filters.from);
     const to = endOfDay(filters.to);
     if (from || to) where.endedAt = { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) };

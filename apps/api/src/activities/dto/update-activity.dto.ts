@@ -17,4 +17,8 @@ export class UpdateActivityDto {
   @IsOptional()
   @IsString()
   departmentId?: string | null;
+
+  @IsOptional()
+  @IsString()
+  unitId?: string;
 }

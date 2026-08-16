@@ -23,4 +23,8 @@ export class UpdateShiftDto {
   @IsOptional()
   @IsBoolean()
   active?: boolean;
+
+  @IsOptional()
+  @IsString()
+  unitId?: string;
 }

@@ -20,16 +20,16 @@ export class ShiftsController {
 
   @Get()
   list(@Req() req: any) {
-    return this.service.list(req.user.tenantId);
+    return this.service.list(req.user.tenantId, req.user.roles, req.user.unitIds);
   }
 
   @Post()
   create(@Req() req: any, @Body() dto: CreateShiftDto) {
-    return this.service.create(req.user.tenantId, req.user.sub, dto);
+    return this.service.create(req.user.tenantId, req.user.sub, dto, req.user.roles, req.user.unitIds, req.user.primaryUnitId);
   }
 
   @Patch(':id')
   update(@Req() req: any, @Param('id') id: string, @Body() dto: UpdateShiftDto) {
-    return this.service.update(req.user.tenantId, req.user.sub, id, dto);
+    return this.service.update(req.user.tenantId, req.user.sub, id, dto, req.user.roles, req.user.unitIds);
   }
 }

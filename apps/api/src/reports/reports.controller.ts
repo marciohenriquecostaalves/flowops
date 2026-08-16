@@ -14,8 +14,8 @@ export class ReportsController {
   async productivity(@Req() req: any, @Query() query: Record<string, string>) {
     if (req.user.roles?.includes('FOREMAN')) {
       const departmentId = await this.service.departmentForUser(req.user.tenantId, req.user.sub);
-      return this.service.productivity(req.user.tenantId, { ...query, departmentId });
+      return this.service.productivity(req.user.tenantId, { ...query, departmentId }, req.user.roles ?? [], req.user.unitIds ?? []);
     }
-    return this.service.productivity(req.user.tenantId, query);
+    return this.service.productivity(req.user.tenantId, query, req.user.roles ?? [], req.user.unitIds ?? []);
   }
 }

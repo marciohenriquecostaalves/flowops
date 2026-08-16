@@ -6,13 +6,14 @@ import { AppShell } from '../components/app-shell';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api';
 type Role = 'ADMIN' | 'SUPERVISOR' | 'OPERATOR' | 'FOREMAN';
-type AccessArea = 'dashboard' | 'operations' | 'employees' | 'jobTitles' | 'departments' | 'shifts' | 'activities' | 'reports';
+type AccessArea = 'dashboard' | 'operations' | 'employees' | 'jobTitles' | 'departments' | 'shifts' | 'activities' | 'reports' | 'businessUnits';
+type BusinessUnit = { id: string; code: string; name: string; active: boolean };
 type Employee = { id: string; name: string; employeeCode: string; userId?: string | null };
-type User = { id: string; name: string; email: string; status: string; createdAt: string; accessAreas: AccessArea[]; employee: Employee | null; roles: { role: { name: Role } }[] };
+type User = { id: string; name: string; email: string; status: string; createdAt: string; accessAreas: AccessArea[]; employee: Employee | null; roles: { role: { name: Role } }[]; unitAccess?: { unit: BusinessUnit; isPrimary: boolean }[] };
 type AuditMetadata = { role?: string; status?: string; employee?: string; employeeCode?: string; activity?: string; units?: number; name?: string; before?: Record<string, unknown>; after?: Record<string, unknown> };
 type Audit = { id: string; action: string; entityId: string | null; createdAt: string; metadata: AuditMetadata | null; user: { name: string; email: string } | null };
 const labels: Record<Role, string> = { ADMIN: 'Administrador', SUPERVISOR: 'Supervisor', OPERATOR: 'Operador', FOREMAN: 'Encarregado' };
-const accessAreaLabels: Record<AccessArea, string> = { dashboard: 'Visão geral', operations: 'Operação', employees: 'Colaboradores', jobTitles: 'Cargos', departments: 'Departamentos', shifts: 'Turnos', activities: 'Atividades', reports: 'Relatórios' };
+const accessAreaLabels: Record<AccessArea, string> = { dashboard: 'Visão geral', operations: 'Operação', employees: 'Colaboradores', jobTitles: 'Cargos', departments: 'Departamentos', shifts: 'Turnos', activities: 'Atividades', reports: 'Relatórios', businessUnits: 'Matriz e filiais' };
 const allAccessAreas = Object.keys(accessAreaLabels) as AccessArea[];
 function defaultAreas(role: Role): AccessArea[] { return role === 'FOREMAN' ? ['dashboard', 'reports'] : role === 'OPERATOR' ? ['dashboard', 'operations'] : [...allAccessAreas]; }
 const auditLabels: Record<string, string> = { USER_CREATED: 'Usuário criado', USER_UPDATED: 'Usuário atualizado', USER_PASSWORD_RESET: 'Senha redefinida', USER_ACCESS_REVOKED: 'Acesso cancelado', USER_ACCESS_REACTIVATED: 'Acesso reativado', SESSION_STARTED: 'Sessão iniciada', SESSION_PAUSED: 'Sessão pausada', SESSION_RESUMED: 'Sessão retomada', SESSION_FINISHED: 'Sessão finalizada', SESSION_UNITS_UPDATED: 'Unidades atualizadas', SETTINGS_UPDATED: 'Configurações atualizadas', EMPLOYEE_CREATED: 'Colaborador criado', EMPLOYEE_UPDATED: 'Colaborador atualizado', DEPARTMENT_CREATED: 'Departamento criado', DEPARTMENT_UPDATED: 'Departamento atualizado', DEPARTMENT_DELETED: 'Departamento excluído', SHIFT_CREATED: 'Turno criado', SHIFT_UPDATED: 'Turno atualizado', ACTIVITY_CREATED: 'Atividade criada', ACTIVITY_UPDATED: 'Atividade atualizada', JOB_TITLE_CREATED: 'Cargo criado', JOB_TITLE_UPDATED: 'Cargo atualizado' };
@@ -21,6 +22,7 @@ export default function UsersPage() {
   const router = useRouter();
   const [users, setUsers] = useState<User[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [units, setUnits] = useState<BusinessUnit[]>([]);
   const [audit, setAudit] = useState<Audit[]>([]);
   const [auditPage, setAuditPage] = useState(1);
   const [auditTotal, setAuditTotal] = useState(0);
@@ -29,6 +31,7 @@ export default function UsersPage() {
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<Role>('OPERATOR');
   const [employeeId, setEmployeeId] = useState('');
+  const [unitIds, setUnitIds] = useState<string[]>([]);
   const [accessAreas, setAccessAreas] = useState<AccessArea[]>(defaultAreas('OPERATOR'));
   const [editing, setEditing] = useState<User | null>(null);
   const [newPassword, setNewPassword] = useState('');
@@ -41,24 +44,29 @@ export default function UsersPage() {
   function userRole(user: User) { return user.roles[0]?.role.name ?? 'OPERATOR'; }
   async function load(page = auditPage) {
     const headers = auth(); if (!headers) return router.replace('/');
-    const [usersResponse, auditResponse, employeesResponse] = await Promise.all([fetch(`${API}/users`, { headers }), fetch(`${API}/users/audit?page=${page}`, { headers }), fetch(`${API}/employees`, { headers })]);
+    const [usersResponse, auditResponse, employeesResponse, unitsResponse] = await Promise.all([fetch(`${API}/users`, { headers }), fetch(`${API}/users/audit?page=${page}`, { headers }), fetch(`${API}/employees`, { headers }), fetch(`${API}/business-units`, { headers })]);
     if (!usersResponse.ok) { setError('Seu perfil não tem permissão para gerir usuários.'); setLoading(false); return; }
     setUsers(await usersResponse.json());
     if (employeesResponse.ok) setEmployees(await employeesResponse.json());
+    if (unitsResponse.ok) setUnits((await unitsResponse.json()).filter((unit: BusinessUnit) => unit.active));
     if (auditResponse.ok) { const data = await auditResponse.json(); setAudit(data.items); setAuditTotal(data.total); setAuditPage(data.page); }
     setLoading(false);
   }
   useEffect(() => { void load(1); }, []);
-  function reset() { setName(''); setEmail(''); setPassword(''); setRole('OPERATOR'); setEmployeeId(''); setAccessAreas(defaultAreas('OPERATOR')); setEditing(null); setNewPassword(''); setError(''); }
+  function reset() { setName(''); setEmail(''); setPassword(''); setRole('OPERATOR'); setEmployeeId(''); setUnitIds(units.slice(0, 1).map((unit) => unit.id)); setAccessAreas(defaultAreas('OPERATOR')); setEditing(null); setNewPassword(''); setError(''); }
   async function submit(event: FormEvent) {
     event.preventDefault(); const headers = auth(); if (!headers) return router.replace('/');
     setSaving(true); setError(''); setMessage('');
+    if (!unitIds.length) { setSaving(false); setError('Selecione ao menos uma filial para o usuário.'); return; }
     const response = await fetch(editing ? `${API}/users/${editing.id}` : `${API}/users`, { method: editing ? 'PATCH' : 'POST', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify(editing ? { name, email, role, employeeId, accessAreas } : { name, email, password, role, employeeId }) });
     setSaving(false);
     if (!response.ok) { setError(`Não foi possível ${editing ? 'atualizar' : 'criar'} o usuário. Confira os dados.`); return; }
+    const savedUser = await response.json();
+    const unitsResponse = await fetch(`${API}/users/${savedUser.id}/units`, { method: 'PATCH', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify({ unitIds }) });
+    if (!unitsResponse.ok) { setError('Usuário salvo, mas não foi possível atualizar as filiais permitidas.'); return; }
     setMessage(editing ? 'Usuário atualizado.' : 'Usuário criado. Oriente a pessoa a trocar a senha no primeiro acesso.'); reset(); await load();
   }
-  function edit(user: User) { const selectedRole = userRole(user); setEditing(user); setName(user.name); setEmail(user.email); setRole(selectedRole); setEmployeeId(user.employee?.id ?? ''); setAccessAreas(user.accessAreas?.length ? user.accessAreas : defaultAreas(selectedRole)); setPassword(''); setNewPassword(''); setMessage(''); setError(''); }
+  function edit(user: User) { const selectedRole = userRole(user); setEditing(user); setName(user.name); setEmail(user.email); setRole(selectedRole); setEmployeeId(user.employee?.id ?? ''); setUnitIds(user.unitAccess?.map((access) => access.unit.id) ?? units.slice(0, 1).map((unit) => unit.id)); setAccessAreas(user.accessAreas?.length ? user.accessAreas : defaultAreas(selectedRole)); setPassword(''); setNewPassword(''); setMessage(''); setError(''); }
   async function toggle(user: User) {
     const headers = auth(); if (!headers) return router.replace('/');
     const response = await fetch(`${API}/users/${user.id}`, { method: 'PATCH', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify({ status: user.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE' }) });
@@ -82,6 +90,7 @@ export default function UsersPage() {
         {!editing && <div className="field"><label>Senha inicial</label><input required minLength={8} type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Mínimo de 8 caracteres" /></div>}
         <div className="field"><label>Perfil de acesso</label><select value={role} onChange={(e) => setRole(e.target.value as Role)}>{(Object.keys(labels) as Role[]).map((item) => <option key={item} value={item}>{labels[item]}</option>)}</select></div>
         <div className="field"><label>Colaborador vinculado {role === 'OPERATOR' || role === 'FOREMAN' ? '(obrigatório)' : '(opcional)'}</label><select required={role === 'OPERATOR' || role === 'FOREMAN'} value={employeeId} onChange={(e) => setEmployeeId(e.target.value)}><option value="">Selecione</option>{employees.filter((employee) => !employee.userId || employee.id === editing?.employee?.id).map((employee) => <option key={employee.id} value={employee.id}>{employee.employeeCode} · {employee.name}</option>)}</select></div>
+        <div className="access-areas"><strong>Filiais permitidas</strong><p className="muted">O usuário verá apenas os dados das filiais selecionadas.</p><div className="access-area-grid">{units.map((unit) => <label className="access-area-option" key={unit.id}><input type="checkbox" checked={unitIds.includes(unit.id)} onChange={(e) => setUnitIds(e.target.checked ? [...unitIds, unit.id] : unitIds.filter((item) => item !== unit.id))} />{unit.name} ({unit.code})</label>)}</div></div>
         {editing && role !== 'ADMIN' && <div className="access-areas"><strong>Áreas liberadas para este usuário</strong><p className="muted">Selecione os menus que poderão aparecer para ele.</p><div className="access-area-grid">{allAccessAreas.map((area) => <label className="access-area-option" key={area}><input type="checkbox" checked={accessAreas.includes(area)} onChange={(e) => setAccessAreas(e.target.checked ? [...accessAreas, area] : accessAreas.filter((item) => item !== area))} />{accessAreaLabels[area]}</label>)}</div></div>}
         {editing && role === 'ADMIN' && <p className="muted">Administradores possuem acesso completo ao sistema.</p>}
         <div className="form-actions"><button className="btn" disabled={saving} type="submit">{saving ? 'Salvando...' : editing ? 'Salvar alterações' : 'Criar usuário'}</button>{editing && <button className="btn btn-secondary" type="button" onClick={reset}>Cancelar</button>}</div>

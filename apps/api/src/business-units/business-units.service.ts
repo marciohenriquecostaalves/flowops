@@ -2,14 +2,15 @@ import { ConflictException, Injectable, NotFoundException } from '@nestjs/common
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateBusinessUnitDto } from './dto/create-business-unit.dto';
 import { UpdateBusinessUnitDto } from './dto/update-business-unit.dto';
+import { scopedUnitWhere } from '../auth/unit-scope';
 
 @Injectable()
 export class BusinessUnitsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  list(tenantId: string) {
+  list(tenantId: string, roles: string[] = [], unitIds: string[] = []) {
     return this.prisma.businessUnit.findMany({
-      where: { tenantId },
+      where: scopedUnitWhere(tenantId, roles, unitIds),
       include: {
         parent: { select: { id: true, code: true, name: true } },
         _count: { select: { children: true, employees: true, departments: true, userAccess: true } },

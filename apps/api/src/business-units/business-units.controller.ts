@@ -20,7 +20,7 @@ export class BusinessUnitsController {
   @Get()
   @Roles('ADMIN', 'SUPERVISOR', 'FOREMAN')
   list(@Req() req: any) {
-    return this.service.list(req.user.tenantId);
+    return this.service.list(req.user.tenantId, req.user.roles ?? [], req.user.unitIds ?? []);
   }
 
   @Post()
