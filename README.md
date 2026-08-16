@@ -56,6 +56,8 @@ Health checks:
 - `GET /api/health/ready` confirma que a API consegue acessar o PostgreSQL;
 - `X-Request-Id` identifica cada requisição e os logs da API são emitidos em JSON, sem dados sensíveis.
 
+Homologação local com containers: consulte [docs/staging.md](docs/staging.md). Ela usa portas e volumes próprios, separados do ambiente de desenvolvimento.
+
 Usuário seed:
 - e-mail: admin@flowops.local
 - senha: ChangeMe123!

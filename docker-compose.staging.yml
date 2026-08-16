@@ -1,0 +1,88 @@
+name: flowops-staging
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: flowops-staging-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: flowops
+      POSTGRES_PASSWORD: ${STAGING_POSTGRES_PASSWORD:?Defina STAGING_POSTGRES_PASSWORD em deploy/staging.env}
+      POSTGRES_DB: flowops
+    ports:
+      - "127.0.0.1:${STAGING_POSTGRES_PORT:-55432}:5432"
+    volumes:
+      - flowops-staging-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U flowops -d flowops"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  redis:
+    image: redis:8-alpine
+    container_name: flowops-staging-redis
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${STAGING_REDIS_PORT:-56379}:6379"
+    volumes:
+      - flowops-staging-redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: flowops-staging-api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: staging
+      DATABASE_URL: ${STAGING_DATABASE_URL:?Defina STAGING_DATABASE_URL em deploy/staging.env}
+      API_PORT: 4000
+      CORS_ORIGIN: ${STAGING_CORS_ORIGIN:-http://localhost:3300}
+      JWT_ACCESS_SECRET: ${STAGING_JWT_ACCESS_SECRET:?Defina STAGING_JWT_ACCESS_SECRET em deploy/staging.env}
+      JWT_REFRESH_SECRET: ${STAGING_JWT_REFRESH_SECRET:?Defina STAGING_JWT_REFRESH_SECRET em deploy/staging.env}
+      JWT_ACCESS_EXPIRES_IN: 15m
+      JWT_REFRESH_EXPIRES_IN: 7d
+    command: ["sh", "-c", "pnpm db:deploy && node apps/api/dist/src/main.js"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${STAGING_API_PORT:-4400}:4000"
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:4000/api/health/ready').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${STAGING_PUBLIC_API_URL:-http://localhost:4400/api}
+    container_name: flowops-staging-web
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${STAGING_WEB_PORT:-3300}:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3000').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+volumes:
+  flowops-staging-postgres:
+  flowops-staging-redis:

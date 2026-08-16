@@ -19,4 +19,9 @@ describe('environment validation', () => {
     expect(() => validateEnv({ ...valid, NODE_ENV: 'production', JWT_ACCESS_SECRET: 'replace-me' }))
       .toThrow('JWT_ACCESS_SECRET');
   });
+
+  it('rejects placeholder secrets in staging', () => {
+    expect(() => validateEnv({ ...valid, NODE_ENV: 'staging', JWT_REFRESH_SECRET: 'troque-por-um-secret-aleatorio' }))
+      .toThrow('JWT_REFRESH_SECRET');
+  });
 });
