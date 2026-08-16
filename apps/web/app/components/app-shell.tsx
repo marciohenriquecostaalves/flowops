@@ -7,14 +7,14 @@ import { usePathname, useRouter } from 'next/navigation';
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api';
 
 const items = [
-  { href: '/dashboard', label: 'Visão geral', icon: '▦', roles: ['ADMIN', 'SUPERVISOR', 'OPERATOR'] },
-  { href: '/operations', label: 'Operação', icon: '◉', roles: ['ADMIN', 'SUPERVISOR', 'OPERATOR'] },
-  { href: '/employees', label: 'Colaboradores', icon: '◌', roles: ['ADMIN', 'SUPERVISOR'] },
-  { href: '/job-titles', label: 'Cargos', icon: '◇', roles: ['ADMIN', 'SUPERVISOR'] },
-  { href: '/departments', label: 'Departamentos', icon: '▤', roles: ['ADMIN', 'SUPERVISOR'] },
-  { href: '/shifts', label: 'Turnos', icon: '◷', roles: ['ADMIN', 'SUPERVISOR'] },
-  { href: '/activities', label: 'Atividades', icon: '✓', roles: ['ADMIN', 'SUPERVISOR'] },
-  { href: '/reports', label: 'Relatórios', icon: '▥', roles: ['ADMIN', 'SUPERVISOR'] },
+  { href: '/dashboard', area: 'dashboard', label: 'Visão geral', icon: '▦', roles: ['ADMIN', 'SUPERVISOR', 'OPERATOR', 'FOREMAN'] },
+  { href: '/operations', area: 'operations', label: 'Operação', icon: '◉', roles: ['ADMIN', 'SUPERVISOR', 'OPERATOR'] },
+  { href: '/employees', area: 'employees', label: 'Colaboradores', icon: '◌', roles: ['ADMIN', 'SUPERVISOR'] },
+  { href: '/job-titles', area: 'jobTitles', label: 'Cargos', icon: '◇', roles: ['ADMIN', 'SUPERVISOR'] },
+  { href: '/departments', area: 'departments', label: 'Departamentos', icon: '▤', roles: ['ADMIN', 'SUPERVISOR'] },
+  { href: '/shifts', area: 'shifts', label: 'Turnos', icon: '◷', roles: ['ADMIN', 'SUPERVISOR'] },
+  { href: '/activities', area: 'activities', label: 'Atividades', icon: '✓', roles: ['ADMIN', 'SUPERVISOR'] },
+  { href: '/reports', area: 'reports', label: 'Relatórios', icon: '▥', roles: ['ADMIN', 'SUPERVISOR', 'FOREMAN'] },
 ];
 
 type AppShellProps = {
@@ -28,6 +28,8 @@ export function AppShell({ title, subtitle, children }: AppShellProps) {
   const router = useRouter();
   const [companyName, setCompanyName] = useState('FlowOps');
   const [roles, setRoles] = useState<string[]>([]);
+  const [accessAreas, setAccessAreas] = useState<string[]>([]);
+  const [permissionsLoaded, setPermissionsLoaded] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem('flowops_access_token');
@@ -35,7 +37,7 @@ export function AppShell({ title, subtitle, children }: AppShellProps) {
 
     fetch(`${API}/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
       .then((response) => response.ok ? response.json() : null)
-      .then((user) => setRoles(user?.roles ?? []))
+      .then((user) => { setRoles(user?.roles ?? []); setAccessAreas(user?.accessAreas ?? []); setPermissionsLoaded(true); })
       .catch(() => undefined);
     fetch(`${API}/settings`, { headers: { Authorization: `Bearer ${token}` } })
       .then((response) => response.ok ? response.json() : null)
@@ -44,6 +46,14 @@ export function AppShell({ title, subtitle, children }: AppShellProps) {
       })
       .catch(() => undefined);
   }, [router]);
+
+  useEffect(() => {
+    if (!permissionsLoaded) return;
+    const current = items.find((item) => item.href === pathname);
+    if (!current) return;
+    const allowed = roles.includes('ADMIN') || (current.roles.some((role) => roles.includes(role)) && accessAreas.includes(current.area));
+    if (!allowed && pathname !== '/dashboard') router.replace('/dashboard');
+  }, [accessAreas, pathname, permissionsLoaded, roles, router]);
 
   const initials = useMemo(() => companyName.trim().split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase() || 'F', [companyName]);
 
@@ -62,7 +72,7 @@ export function AppShell({ title, subtitle, children }: AppShellProps) {
 
         <nav className="sidebar-nav" aria-label="Menu principal">
           <span className="nav-label">GESTÃO</span>
-          {items.filter((item) => item.roles.some((role) => roles.includes(role))).map((item) => <Link key={item.href} href={item.href} className={`nav-item ${pathname === item.href ? 'active' : ''}`}><span>{item.icon}</span>{item.label}</Link>)}
+          {items.filter((item) => roles.includes('ADMIN') || (item.roles.some((role) => roles.includes(role)) && accessAreas.includes(item.area))).map((item) => <Link key={item.href} href={item.href} className={`nav-item ${pathname === item.href ? 'active' : ''}`}><span>{item.icon}</span>{item.label}</Link>)}
           <span className="nav-label">SISTEMA</span>
           {roles.includes('ADMIN') && <><Link href="/users" className={`nav-item ${pathname === '/users' ? 'active' : ''}`}><span>◉</span>Usuários e acessos</Link><Link href="/settings" className={`nav-item ${pathname === '/settings' ? 'active' : ''}`}><span>⚙</span>Configurações</Link></>}
         </nav>

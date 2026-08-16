@@ -69,6 +69,7 @@ export default function Dashboard() {
   }
 
   if (!user) return <main className="container">Carregando FlowOps...</main>;
+  const isForeman = user.roles.includes('FOREMAN');
 
   return (
     <AppShell title="Visão geral" subtitle="Acompanhe a operação e a produtividade em tempo real.">
@@ -82,7 +83,7 @@ export default function Dashboard() {
         <Kpi title="Melhor produtividade" value={ranking.find((row) => row.productivity !== null)?.productivity !== undefined ? `${ranking.find((row) => row.productivity !== null)!.productivity!.toFixed(1)}/h` : 'Em apuração'} />
       </section>
 
-      <section className="card" style={{ marginBottom: 16 }}>
+      {!isForeman && <section className="card" style={{ marginBottom: 16 }}>
         <h2>Operação em tempo real</h2>
         {active.length === 0 ? (
           <p className="muted">Nenhuma sessão ativa.</p>
@@ -97,9 +98,9 @@ export default function Dashboard() {
             </div>
           ))
         )}
-      </section>
+      </section>}
 
-      <section className="card">
+      {!isForeman && <section className="card">
         <h2>Ranking de produtividade</h2>
         {ranking.length === 0 ? (
           <p className="muted">Ainda não existem sessões concluídas.</p>
@@ -111,7 +112,7 @@ export default function Dashboard() {
             <strong>{row.productivity === null ? 'Em apuração' : `${row.productivity.toFixed(1)}/h`}</strong>
           </div>
         ))}
-      </section>
+      </section>}
     </AppShell>
   );
 }

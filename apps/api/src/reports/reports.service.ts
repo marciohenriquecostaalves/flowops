@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -8,6 +8,12 @@ type ReportSession = { units: number; productiveSeconds: number; employee: { id:
 @Injectable()
 export class ReportsService {
   constructor(private readonly prisma: PrismaService) {}
+
+  async departmentForUser(tenantId: string, userId: string) {
+    const employee = await this.prisma.employee.findFirst({ where: { tenantId, userId }, select: { departmentId: true } });
+    if (!employee?.departmentId) throw new ForbiddenException('Encarregado precisa estar vinculado a um departamento');
+    return employee.departmentId;
+  }
 
   async productivity(tenantId: string, filters: ReportFilters) {
     const where: Prisma.ActivitySessionWhereInput = { tenantId, status: 'COMPLETED' };

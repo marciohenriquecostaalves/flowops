@@ -3,13 +3,16 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
+import { AccessAreas } from '../auth/access-areas.decorator';
+import { AccessAreasGuard } from '../auth/access-areas.guard';
 import { CreateDepartmentDto } from './dto/create-department.dto';
 import { UpdateDepartmentDto } from './dto/update-department.dto';
 import { DepartmentsService } from './departments.service';
 
 @ApiTags('departments')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, AccessAreasGuard)
+@AccessAreas('departments')
 @Roles('ADMIN', 'SUPERVISOR')
 @Controller('departments')
 export class DepartmentsController {

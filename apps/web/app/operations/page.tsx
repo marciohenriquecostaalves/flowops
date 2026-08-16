@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { AppShell } from '../components/app-shell';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api';
-type Employee = { id: string; name: string; employeeCode: string; status: string };
+type Employee = { id: string; name: string; employeeCode: string; status: string; userId: string | null };
 type Activity = { id: string; name: string; code: string; status: string };
 type Session = { id: string; status: 'RUNNING' | 'PAUSED'; units: number; employee: Employee; activity: Activity };
 
@@ -23,12 +23,14 @@ export default function OperationsPage() {
   const auth = () => { const token = localStorage.getItem('flowops_access_token'); return token ? { Authorization: `Bearer ${token}` } : null; };
   async function load() {
     const headers = auth(); if (!headers) return router.replace('/');
-    const [employeeResponse, activityResponse, sessionResponse] = await Promise.all([
-      fetch(`${API}/employees`, { headers }), fetch(`${API}/activities`, { headers }), fetch(`${API}/operations/sessions/active`, { headers }),
+    const [employeeResponse, activityResponse, sessionResponse, meResponse] = await Promise.all([
+      fetch(`${API}/employees`, { headers }), fetch(`${API}/activities`, { headers }), fetch(`${API}/operations/sessions/active`, { headers }), fetch(`${API}/auth/me`, { headers }),
     ]);
     if (!employeeResponse.ok || !activityResponse.ok || !sessionResponse.ok) { localStorage.clear(); return router.replace('/'); }
     const active = await sessionResponse.json();
-    setEmployees((await employeeResponse.json()).filter((employee: Employee) => employee.status === 'ACTIVE'));
+    const me = meResponse.ok ? await meResponse.json() : null;
+    const allEmployees = await employeeResponse.json();
+    setEmployees(allEmployees.filter((employee: Employee) => employee.status === 'ACTIVE' && (!me?.roles?.includes('OPERATOR') || employee.userId === me.id)));
     setActivities((await activityResponse.json()).filter((activity: Activity) => activity.status === 'ACTIVE'));
     setSessions(active); setUnits(Object.fromEntries(active.map((session: Session) => [session.id, String(session.units)]))); setLoading(false);
   }

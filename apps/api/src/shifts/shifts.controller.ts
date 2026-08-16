@@ -3,13 +3,16 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
+import { AccessAreas } from '../auth/access-areas.decorator';
+import { AccessAreasGuard } from '../auth/access-areas.guard';
 import { CreateShiftDto } from './dto/create-shift.dto';
 import { UpdateShiftDto } from './dto/update-shift.dto';
 import { ShiftsService } from './shifts.service';
 
 @ApiTags('shifts')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, AccessAreasGuard)
+@AccessAreas('shifts')
 @Roles('ADMIN', 'SUPERVISOR')
 @Controller('shifts')
 export class ShiftsController {

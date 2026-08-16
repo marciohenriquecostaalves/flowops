@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -19,6 +20,16 @@ export class OperationsService {
     });
     if (!session) throw new NotFoundException('Sessão não encontrada');
     return session;
+  }
+
+  async assertOperatorStart(tenantId: string, userId: string, employeeId: string) {
+    const employee = await this.prisma.employee.findFirst({ where: { tenantId, userId } });
+    if (!employee || employee.id !== employeeId) throw new ForbiddenException('Operador só pode iniciar a própria sessão');
+  }
+
+  async assertOperatorSession(tenantId: string, userId: string, sessionId: string) {
+    const session = await this.prisma.activitySession.findFirst({ where: { id: sessionId, tenantId }, include: { employee: true } });
+    if (!session || session.employee.userId !== userId) throw new ForbiddenException('Operador só pode alterar a própria sessão');
   }
 
   async start(tenantId: string, actorUserId: string, dto: StartSessionDto) {
@@ -136,17 +147,23 @@ export class OperationsService {
     return updated;
   }
 
-  active(tenantId: string) {
+  async departmentForUser(tenantId: string, userId: string) {
+    const employee = await this.prisma.employee.findFirst({ where: { tenantId, userId }, select: { departmentId: true } });
+    if (!employee?.departmentId) throw new ForbiddenException('Encarregado precisa estar vinculado a um departamento');
+    return employee.departmentId;
+  }
+
+  active(tenantId: string, userId?: string, departmentId?: string) {
     return this.prisma.activitySession.findMany({
-      where: { tenantId, status: { in: ['RUNNING', 'PAUSED'] } },
+      where: { tenantId, status: { in: ['RUNNING', 'PAUSED'] }, ...((userId || departmentId) ? { employee: { ...(userId ? { userId } : {}), ...(departmentId ? { departmentId } : {}) } } : {}) },
       include: { employee: true, activity: true },
       orderBy: { startedAt: 'asc' },
     });
   }
 
-  async productivity(tenantId: string) {
+  async productivity(tenantId: string, userId?: string, departmentId?: string) {
     const sessions = await this.prisma.activitySession.findMany({
-      where: { tenantId, status: 'COMPLETED' },
+      where: { tenantId, status: 'COMPLETED', ...((userId || departmentId) ? { employee: { ...(userId ? { userId } : {}), ...(departmentId ? { departmentId } : {}) } } : {}) },
       include: { employee: true, activity: true },
       orderBy: { endedAt: 'desc' },
       take: 1000,

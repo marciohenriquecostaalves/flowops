@@ -36,6 +36,7 @@ async function main() {
     prisma.role.upsert({ where: { tenantId_name: { tenantId: tenant.id, name: 'ADMIN' } }, update: {}, create: { tenantId: tenant.id, name: 'ADMIN', description: 'Administrador da empresa' } }),
     prisma.role.upsert({ where: { tenantId_name: { tenantId: tenant.id, name: 'SUPERVISOR' } }, update: {}, create: { tenantId: tenant.id, name: 'SUPERVISOR', description: 'Supervisor operacional' } }),
     prisma.role.upsert({ where: { tenantId_name: { tenantId: tenant.id, name: 'OPERATOR' } }, update: {}, create: { tenantId: tenant.id, name: 'OPERATOR', description: 'Operador' } }),
+    prisma.role.upsert({ where: { tenantId_name: { tenantId: tenant.id, name: 'FOREMAN' } }, update: {}, create: { tenantId: tenant.id, name: 'FOREMAN', description: 'Encarregado de departamento' } }),
   ]);
   const role = roles.find((item) => item.name === 'ADMIN')!;
 

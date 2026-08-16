@@ -4,6 +4,7 @@ import type ms from 'ms';
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { hashPassword, verifyPassword } from './password';
+import { defaultAccessAreas } from '../users/dto/create-user.dto';
 
 @Injectable()
 export class AuthService {
@@ -59,12 +60,14 @@ export class AuthService {
 
     if (!user) throw new UnauthorizedException();
 
+    const roles = user.roles.map((item) => item.role.name);
     return {
       id: user.id,
       tenantId: user.tenantId,
       name: user.name,
       email: user.email,
-      roles: user.roles.map((item) => item.role.name),
+      roles,
+      accessAreas: user.accessAreas.length ? user.accessAreas : defaultAccessAreas(roles[0] ?? ''),
     };
   }
 
@@ -73,12 +76,16 @@ export class AuthService {
     tenantId: string;
     name: string;
     email: string;
+    accessAreas: string[];
     roles: { role: { name: string } }[];
   }) {
+    const roles = user.roles.map((item) => item.role.name);
+    const accessAreas = user.accessAreas.length ? user.accessAreas : defaultAccessAreas(roles[0] ?? '');
     const payload = {
       sub: user.id,
       tenantId: user.tenantId,
-      roles: user.roles.map((item) => item.role.name),
+      roles,
+      accessAreas,
     };
 
     const accessToken = await this.jwt.signAsync(payload, {
@@ -108,6 +115,7 @@ export class AuthService {
         name: user.name,
         email: user.email,
         roles: payload.roles,
+        accessAreas: payload.accessAreas,
       },
     };
   }

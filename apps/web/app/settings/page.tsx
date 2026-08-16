@@ -6,8 +6,8 @@ import { AppShell } from '../components/app-shell';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api';
 
-type Settings = { name: string; legalName: string | null; supportEmail: string | null; phone: string | null; city: string | null; state: string | null };
-const emptySettings: Settings = { name: '', legalName: '', supportEmail: '', phone: '', city: '', state: '' };
+type Settings = { name: string; legalName: string | null; emailDomain: string | null; usesOwnEmailDomain: boolean; supportEmail: string | null; phone: string | null; city: string | null; state: string | null };
+const emptySettings: Settings = { name: '', legalName: '', emailDomain: '', usesOwnEmailDomain: false, supportEmail: '', phone: '', city: '', state: '' };
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -39,9 +39,24 @@ export default function SettingsPage() {
     const headers = auth();
     if (!headers) return router.replace('/');
     setSaving(true); setError(''); setMessage('');
-    const response = await fetch(`${API}/settings`, { method: 'PATCH', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify(settings) });
+    const payload = {
+      name: settings.name.trim(),
+      legalName: settings.legalName?.trim() || null,
+      emailDomain: settings.usesOwnEmailDomain ? settings.emailDomain?.trim() || null : null,
+      usesOwnEmailDomain: settings.usesOwnEmailDomain,
+      supportEmail: settings.supportEmail?.trim() || null,
+      phone: settings.phone?.trim() || null,
+      city: settings.city?.trim() || null,
+      state: settings.state?.trim().toUpperCase() || null,
+    };
+    const response = await fetch(`${API}/settings`, { method: 'PATCH', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     setSaving(false);
-    if (!response.ok) { setError('Não foi possível salvar. Confira os dados informados.'); return; }
+    if (!response.ok) {
+      const details = await response.json().catch(() => null);
+      const message = Array.isArray(details?.message) ? details.message.join('. ') : details?.message;
+      setError(message || 'Não foi possível salvar. Confira os dados informados.');
+      return;
+    }
     setSettings(await response.json());
     setMessage('Configurações salvas com sucesso.');
   }
@@ -54,6 +69,8 @@ export default function SettingsPage() {
       <form className="settings-form" onSubmit={submit}>
         <div className="field"><label>Nome exibido no sistema</label><input required minLength={2} value={settings.name} onChange={(e) => setSettings({ ...settings, name: e.target.value })} placeholder="Ex.: FlowOps Logística" /></div>
         <div className="field"><label>Razão social (opcional)</label><input value={settings.legalName ?? ''} onChange={(e) => setSettings({ ...settings, legalName: e.target.value })} placeholder="Ex.: FlowOps Operações Ltda." /></div>
+        <div className="field checkbox-field"><label><input type="checkbox" checked={settings.usesOwnEmailDomain} onChange={(e) => setSettings({ ...settings, usesOwnEmailDomain: e.target.checked, emailDomain: e.target.checked ? settings.emailDomain : null })} /> A empresa possui domínio próprio</label><small>Ative para gerar automaticamente e-mails corporativos dos colaboradores.</small></div>
+        {settings.usesOwnEmailDomain && <div className="field"><label>Domínio corporativo</label><input required type="text" value={settings.emailDomain ?? ''} onChange={(e) => setSettings({ ...settings, emailDomain: e.target.value })} placeholder="@empresa.com.br" /></div>}
         <div className="field"><label>E-mail de suporte (opcional)</label><input type="email" value={settings.supportEmail ?? ''} onChange={(e) => setSettings({ ...settings, supportEmail: e.target.value })} placeholder="suporte@empresa.com" /></div>
         <div className="field"><label>Telefone (opcional)</label><input value={settings.phone ?? ''} onChange={(e) => setSettings({ ...settings, phone: e.target.value })} placeholder="(00) 00000-0000" /></div>
         <div className="field"><label>Cidade (opcional)</label><input value={settings.city ?? ''} onChange={(e) => setSettings({ ...settings, city: e.target.value })} placeholder="Ex.: São Paulo" /></div>

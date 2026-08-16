@@ -6,6 +6,7 @@ export type JwtPayload = {
   sub: string;
   tenantId: string;
   roles: string[];
+  accessAreas?: string[];
 };
 
 @Injectable()

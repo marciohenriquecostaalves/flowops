@@ -1,9 +1,12 @@
-import { IsEmail, IsOptional, IsString, MinLength } from 'class-validator';
+import { Transform } from 'class-transformer';
+import { IsBoolean, IsEmail, IsOptional, IsString, MinLength } from 'class-validator';
 
 export class CreateEmployeeDto {
+  @IsOptional()
+  @Transform(({ value }) => value === '' ? undefined : value)
   @IsString()
   @MinLength(2)
-  employeeCode!: string;
+  employeeCode?: string;
 
   @IsString()
   @MinLength(2)
@@ -12,6 +15,11 @@ export class CreateEmployeeDto {
   @IsOptional()
   @IsEmail()
   email?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true')
+  @IsBoolean()
+  corporateEmail = false;
 
   @IsOptional()
   @IsString()

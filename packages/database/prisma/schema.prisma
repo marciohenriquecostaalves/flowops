@@ -37,6 +37,8 @@ model Tenant {
   name        String
   slug        String       @unique
   legalName   String?
+  emailDomain String?
+  usesOwnEmailDomain Boolean @default(false)
   supportEmail String?
   phone       String?
   city        String?
@@ -64,6 +66,7 @@ model User {
   refreshTokenHash String?
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
+  accessAreas     String[]   @default([])
   tenant          Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   roles           UserRole[]
   employee        Employee?
@@ -117,6 +120,7 @@ model Employee {
   employeeCode String
   name         String
   email        String?
+  corporateEmail Boolean   @default(false)
   jobTitle     String?
   jobTitleId   String?
   photoData    String?

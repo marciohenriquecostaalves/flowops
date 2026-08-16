@@ -64,6 +64,11 @@ button, input, select { font: inherit; }
 .btn:disabled { cursor: not-allowed; opacity: .65; }
 .form { max-width: 420px; margin: 80px auto; }
 .field { display:grid; gap:8px; margin-bottom:16px; min-width:0; }
+.checkbox-field { align-content:start; }
+.checkbox-field label { display:flex; align-items:center; gap:8px; min-height:44px; cursor:pointer; }
+.checkbox-field input[type="checkbox"] { width:18px; height:18px; accent-color:var(--primary); }
+.checkbox-field small { color:var(--muted); font-size:12px; line-height:1.4; }
+.generated-email { min-height:44px; display:flex; align-items:center; padding:12px; border:1px solid var(--border); border-radius:10px; background:#f7fbfa; color:#0f766e; font-weight:600; overflow-wrap:anywhere; }
 .field input {
   width:100%; min-width:0; border:1px solid var(--border); border-radius:10px; padding:12px;
 }
@@ -91,6 +96,7 @@ th, td { text-align:left; padding:14px 10px; border-bottom:1px solid var(--borde
 th { color:var(--muted); font-size:13px; font-weight:600; }
 .status { color:#067647; font-size:13px; font-weight:700; }
 .status-muted { color:var(--muted); }
+.status-inactive { color:#b42318; font-size:13px; font-weight:700; }
 .row-actions { display:flex; gap:8px; }
 .row-actions .btn { padding:8px 10px; font-size:13px; }
 .employee-summary { display:flex; align-items:center; gap:10px; min-width:220px; }
@@ -123,6 +129,12 @@ th { color:var(--muted); font-size:13px; font-weight:600; }
 .settings-monogram { width:58px; height:58px; flex:0 0 auto; border-radius:17px; font-size:23px; }
 .settings-form { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:0 16px; max-width:860px; margin-top:24px; }
 .users-form { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:0 16px; max-width:860px; margin-top:20px; }
+.access-areas { grid-column:1 / -1; margin-top:6px; padding:16px; border:1px solid var(--border); border-radius:12px; background:#fbfcfd; }
+.access-areas > strong { display:block; margin-bottom:4px; }
+.access-areas > p { margin:0 0 12px; }
+.access-area-grid { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:10px; }
+.access-area-option { display:flex; align-items:center; gap:8px; min-height:38px; padding:8px 10px; border:1px solid var(--border); border-radius:9px; background:#fff; cursor:pointer; font-size:14px; }
+.access-area-option input { width:17px; height:17px; accent-color:var(--primary); }
 .password-reset { display:grid; gap:10px; max-width:620px; margin-top:22px; padding:16px; border:1px solid var(--border); border-radius:12px; background:#fbfcfd; }
 .password-reset > div { display:flex; gap:10px; }
 .password-reset input { flex:1; min-width:0; border:1px solid var(--border); border-radius:10px; padding:11px 12px; }
@@ -131,6 +143,10 @@ th { color:var(--muted); font-size:13px; font-weight:600; }
 .audit-list span { color:var(--muted); font-size:13px; }
 .audit-actor { display:block; margin-top:4px; }
 .pagination { display:flex; align-items:center; justify-content:flex-end; gap:12px; margin-top:18px; color:var(--muted); font-size:14px; }
+.modal-backdrop { position:fixed; inset:0; z-index:20; display:grid; place-items:center; padding:20px; background:rgba(16,32,51,.45); }
+.access-modal { width:min(100%, 440px); display:grid; gap:14px; }
+.access-modal h2,.access-modal p { margin:0; }
+.access-modal input,.access-modal select { width:100%; border:1px solid var(--border); border-radius:10px; padding:12px; background:#fff; }
 .report-filters { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:0 16px; align-items:end; }
 .report-filter-actions { display:flex; gap:10px; padding-bottom:16px; }
 .report-grid { display:grid; grid-template-columns:minmax(0, 1.45fr) minmax(280px, .85fr); gap:16px; }
@@ -171,6 +187,7 @@ th { color:var(--muted); font-size:13px; font-weight:600; }
   .app-content { padding:20px; }
   .settings-form { grid-template-columns:1fr; }
   .users-form { grid-template-columns:1fr; }
+  .access-area-grid { grid-template-columns:repeat(2, minmax(0, 1fr)); }
   .report-filters { grid-template-columns:1fr; }
   .report-filter-actions { padding-bottom:0; }
   .report-grid { grid-template-columns:1fr; }
