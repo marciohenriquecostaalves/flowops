@@ -15,11 +15,11 @@ export function validateEnv(config: Record<string, unknown>) {
     throw new Error('API_PORT deve ser um número inteiro entre 1 e 65535');
   }
 
-  if (config.NODE_ENV === 'production') {
+  if (config.NODE_ENV === 'production' || config.NODE_ENV === 'staging') {
     for (const name of ['JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET']) {
-      const value = String(config[name]);
-      if (value.length < 32 || value.includes('change-before-production') || value.includes('replace-me')) {
-        throw new Error(`${name} precisa ser um secret forte e exclusivo em produção`);
+      const value = String(config[name]).toLowerCase();
+      if (value.length < 32 || value.includes('change-before-production') || value.includes('replace-me') || value.includes('troque-por')) {
+        throw new Error(`${name} precisa ser um secret forte e exclusivo em produção ou homologação`);
       }
     }
   }

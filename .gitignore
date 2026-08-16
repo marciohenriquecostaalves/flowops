@@ -145,3 +145,6 @@ vite.config.ts.timestamp-*
 
 # Database backups (never commit dumps)
 backups/
+
+# Homologação local (contém secrets)
+deploy/staging.env
