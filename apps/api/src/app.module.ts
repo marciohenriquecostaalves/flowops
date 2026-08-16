@@ -1,5 +1,6 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { validateEnv } from './config/env';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { HealthModule } from './health/health.module';
@@ -13,10 +14,11 @@ import { UsersModule } from './users/users.module';
 import { JobTitlesModule } from './job-titles/job-titles.module';
 import { ReportsModule } from './reports/reports.module';
 import { HistoryModule } from './history/history.module';
+import { RequestLoggingMiddleware } from './observability/request-logging.middleware';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
     PrismaModule,
     HealthModule,
     AuthModule,
@@ -32,4 +34,8 @@ import { HistoryModule } from './history/history.module';
     HistoryModule,
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(RequestLoggingMiddleware).forRoutes('*');
+  }
+}

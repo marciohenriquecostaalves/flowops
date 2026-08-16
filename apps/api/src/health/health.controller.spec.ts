@@ -16,5 +16,20 @@ describe('HealthController', () => {
 
     const controller = module.get(HealthController);
     expect(await controller.check()).toMatchObject({ status: 'ok' });
+    expect(await controller.live()).toMatchObject({ status: 'ok' });
+  });
+
+  it('reports the database as unavailable when readiness fails', async () => {
+    const module = await Test.createTestingModule({
+      controllers: [HealthController],
+      providers: [
+        {
+          provide: PrismaService,
+          useValue: { $queryRaw: jest.fn().mockRejectedValue(new Error('database offline')) },
+        },
+      ],
+    }).compile();
+
+    await expect(module.get(HealthController).ready()).rejects.toMatchObject({ status: 503 });
   });
 });
