@@ -12,6 +12,7 @@ import { SettingsModule } from './settings/settings.module';
 import { UsersModule } from './users/users.module';
 import { JobTitlesModule } from './job-titles/job-titles.module';
 import { ReportsModule } from './reports/reports.module';
+import { HistoryModule } from './history/history.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { ReportsModule } from './reports/reports.module';
     UsersModule,
     JobTitlesModule,
     ReportsModule,
+    HistoryModule,
   ],
 })
 export class AppModule {}

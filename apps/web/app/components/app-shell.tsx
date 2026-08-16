@@ -6,7 +6,9 @@ import { usePathname, useRouter } from 'next/navigation';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api';
 
-const items = [
+type NavItem = { href: string; area?: string; areas?: string[]; label: string; icon: string; roles: string[] };
+
+const items: NavItem[] = [
   { href: '/dashboard', area: 'dashboard', label: 'Visão geral', icon: '▦', roles: ['ADMIN', 'SUPERVISOR', 'OPERATOR', 'FOREMAN'] },
   { href: '/operations', area: 'operations', label: 'Operação', icon: '◉', roles: ['ADMIN', 'SUPERVISOR', 'OPERATOR'] },
   { href: '/employees', area: 'employees', label: 'Colaboradores', icon: '◌', roles: ['ADMIN', 'SUPERVISOR'] },
@@ -15,7 +17,13 @@ const items = [
   { href: '/shifts', area: 'shifts', label: 'Turnos', icon: '◷', roles: ['ADMIN', 'SUPERVISOR'] },
   { href: '/activities', area: 'activities', label: 'Atividades', icon: '✓', roles: ['ADMIN', 'SUPERVISOR'] },
   { href: '/reports', area: 'reports', label: 'Relatórios', icon: '▥', roles: ['ADMIN', 'SUPERVISOR', 'FOREMAN'] },
+  { href: '/history', areas: ['operations', 'reports'], label: 'Histórico', icon: '◷', roles: ['ADMIN', 'SUPERVISOR', 'OPERATOR', 'FOREMAN'] },
 ];
+
+function canAccess(item: NavItem, roles: string[], accessAreas: string[]) {
+  const areas = item.areas ?? (item.area ? [item.area] : []);
+  return roles.includes('ADMIN') || (item.roles.some((role) => roles.includes(role)) && areas.some((area) => accessAreas.includes(area)));
+}
 
 type AppShellProps = {
   title: string;
@@ -51,7 +59,7 @@ export function AppShell({ title, subtitle, children }: AppShellProps) {
     if (!permissionsLoaded) return;
     const current = items.find((item) => item.href === pathname);
     if (!current) return;
-    const allowed = roles.includes('ADMIN') || (current.roles.some((role) => roles.includes(role)) && accessAreas.includes(current.area));
+    const allowed = canAccess(current, roles, accessAreas);
     if (!allowed && pathname !== '/dashboard') router.replace('/dashboard');
   }, [accessAreas, pathname, permissionsLoaded, roles, router]);
 
@@ -72,7 +80,7 @@ export function AppShell({ title, subtitle, children }: AppShellProps) {
 
         <nav className="sidebar-nav" aria-label="Menu principal">
           <span className="nav-label">GESTÃO</span>
-          {items.filter((item) => roles.includes('ADMIN') || (item.roles.some((role) => roles.includes(role)) && accessAreas.includes(item.area))).map((item) => <Link key={item.href} href={item.href} className={`nav-item ${pathname === item.href ? 'active' : ''}`}><span>{item.icon}</span>{item.label}</Link>)}
+          {items.filter((item) => canAccess(item, roles, accessAreas)).map((item) => <Link key={item.href} href={item.href} className={`nav-item ${pathname === item.href ? 'active' : ''}`}><span>{item.icon}</span>{item.label}</Link>)}
           <span className="nav-label">SISTEMA</span>
           {roles.includes('ADMIN') && <><Link href="/users" className={`nav-item ${pathname === '/users' ? 'active' : ''}`}><span>◉</span>Usuários e acessos</Link><Link href="/settings" className={`nav-item ${pathname === '/settings' ? 'active' : ''}`}><span>⚙</span>Configurações</Link></>}
         </nav>
