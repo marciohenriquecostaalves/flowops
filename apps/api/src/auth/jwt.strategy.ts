@@ -1,6 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
+import { PrismaService } from '../prisma/prisma.service';
+import { defaultAccessAreas } from '../users/dto/create-user.dto';
 
 export type JwtPayload = {
   sub: string;
@@ -11,7 +13,7 @@ export type JwtPayload = {
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-    constructor() {
+    constructor(private readonly prisma: PrismaService) {
     const secretOrKey = process.env.JWT_ACCESS_SECRET;
 
     if (!secretOrKey) {
@@ -24,7 +26,21 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  validate(payload: JwtPayload) {
-    return payload;
+  async validate(payload: JwtPayload) {
+    const user = await this.prisma.user.findFirst({
+      where: { id: payload.sub, tenantId: payload.tenantId, status: 'ACTIVE' },
+      select: {
+        id: true,
+        accessAreas: true,
+        roles: { select: { role: { select: { name: true } } } },
+      },
+    });
+    if (!user) throw new UnauthorizedException('Sessão inválida ou expirada');
+    const roles = user.roles.map((item) => item.role.name);
+    return {
+      ...payload,
+      roles,
+      accessAreas: user.accessAreas.length ? user.accessAreas : defaultAccessAreas(roles[0] ?? ''),
+    };
   }
 }

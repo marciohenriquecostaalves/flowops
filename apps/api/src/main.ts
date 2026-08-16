@@ -6,7 +6,7 @@ import helmet from 'helmet';
 import * as cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 
-async function bootstrap() {
+export async function createApp() {
   const app = await NestFactory.create(AppModule);
 
   app.setGlobalPrefix('api');
@@ -34,8 +34,13 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup('api/docs', app, document);
 
+  return app;
+}
+
+async function bootstrap() {
+  const app = await createApp();
   const port = Number(process.env.API_PORT ?? 4000);
   await app.listen(port);
 }
 
-bootstrap();
+if (require.main === module) void bootstrap();

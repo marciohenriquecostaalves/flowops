@@ -7,9 +7,9 @@ import { UpdateEmployeeDto } from './dto/update-employee.dto';
 export class EmployeesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  list(tenantId: string) {
+  list(tenantId: string, userId?: string) {
     return this.prisma.employee.findMany({
-      where: { tenantId },
+      where: { tenantId, ...(userId ? { userId } : {}) },
       include: { department: true, shift: true, jobTitleRef: true },
       orderBy: { name: 'asc' },
     });
@@ -63,7 +63,10 @@ export class EmployeesService {
         },
         include: { department: true, shift: true, jobTitleRef: true },
       });
-      await this.audit(tenantId, actorUserId, 'EMPLOYEE_CREATED', employee.id, employee.name, employee.employeeCode);
+      await this.audit(tenantId, actorUserId, 'EMPLOYEE_CREATED', employee.id, {
+        name: employee.name,
+        employeeCode: employee.employeeCode,
+      });
       return employee;
     } catch {
       throw new ConflictException('Código de colaborador já existe');
@@ -126,11 +129,32 @@ export class EmployeesService {
       data,
       include: { department: true, shift: true, jobTitleRef: true },
     });
-    await this.audit(tenantId, actorUserId, 'EMPLOYEE_UPDATED', id, updated.name, updated.employeeCode);
+    await this.audit(tenantId, actorUserId, 'EMPLOYEE_UPDATED', id, {
+      name: updated.name,
+      employeeCode: updated.employeeCode,
+      before: {
+        name: employee.name,
+        email: employee.email,
+        status: employee.status,
+        departmentId: employee.departmentId,
+        shiftId: employee.shiftId,
+        jobTitleId: employee.jobTitleId,
+        corporateEmail: employee.corporateEmail,
+      },
+      after: {
+        name: updated.name,
+        email: updated.email,
+        status: updated.status,
+        departmentId: updated.departmentId,
+        shiftId: updated.shiftId,
+        jobTitleId: updated.jobTitleId,
+        corporateEmail: updated.corporateEmail,
+      },
+    });
     return updated;
   }
 
-  private audit(tenantId: string, userId: string, action: string, entityId: string, name: string, employeeCode: string) { return this.prisma.auditLog.create({ data: { tenantId, userId, action, entity: 'EMPLOYEE', entityId, metadata: { name, employeeCode } } }); }
+  private audit(tenantId: string, userId: string, action: string, entityId: string, metadata: { name: string; employeeCode: string; before?: object; after?: object }) { return this.prisma.auditLog.create({ data: { tenantId, userId, action, entity: 'EMPLOYEE', entityId, metadata } }); }
   private async nextCode(tenantId: string) { const employees = await this.prisma.employee.findMany({ where: { tenantId }, select: { employeeCode: true } }); const max = employees.reduce((highest, item) => Math.max(highest, Number(item.employeeCode.match(/EMP-(\d+)/i)?.[1] ?? 0)), 0); return `EMP-${String(max + 1).padStart(3, '0')}`; }
   private async nextCorporateEmail(tenantId: string, name: string, domain: string, excludeId?: string) {
     const nameParts = name.trim().split(/\s+/).filter(Boolean);

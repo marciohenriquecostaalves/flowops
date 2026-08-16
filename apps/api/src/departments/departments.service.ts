@@ -20,7 +20,7 @@ export class DepartmentsService {
       const department = await this.prisma.department.create({
         data: { tenantId, name: dto.name },
       });
-      await this.audit(tenantId, actorUserId, 'DEPARTMENT_CREATED', department.id, department.name);
+      await this.audit(tenantId, actorUserId, 'DEPARTMENT_CREATED', department.id, { name: department.name });
       return department;
     } catch {
       throw new ConflictException('Departamento já existe');
@@ -33,7 +33,11 @@ export class DepartmentsService {
 
     try {
       const updated = await this.prisma.department.update({ where: { id }, data: dto });
-      await this.audit(tenantId, actorUserId, 'DEPARTMENT_UPDATED', id, updated.name);
+      await this.audit(tenantId, actorUserId, 'DEPARTMENT_UPDATED', id, {
+        name: updated.name,
+        before: { name: department.name },
+        after: { name: updated.name },
+      });
       return updated;
     } catch {
       throw new ConflictException('Não foi possível atualizar o departamento');
@@ -50,9 +54,9 @@ export class DepartmentsService {
       throw new ConflictException('Não é possível excluir um departamento com vínculos ativos');
     }
     await this.prisma.department.delete({ where: { id } });
-    await this.audit(tenantId, actorUserId, 'DEPARTMENT_DELETED', id, department.name);
+    await this.audit(tenantId, actorUserId, 'DEPARTMENT_DELETED', id, { name: department.name });
     return { deleted: true };
   }
 
-  private audit(tenantId: string, userId: string, action: string, entityId: string, name: string) { return this.prisma.auditLog.create({ data: { tenantId, userId, action, entity: 'DEPARTMENT', entityId, metadata: { name } } }); }
+  private audit(tenantId: string, userId: string, action: string, entityId: string, metadata: { name: string; before?: object; after?: object }) { return this.prisma.auditLog.create({ data: { tenantId, userId, action, entity: 'DEPARTMENT', entityId, metadata } }); }
 }

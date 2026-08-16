@@ -142,3 +142,6 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
 .turbo/
+
+# Database backups (never commit dumps)
+backups/

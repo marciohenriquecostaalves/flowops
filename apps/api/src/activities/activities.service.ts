@@ -33,7 +33,7 @@ export class ActivitiesService {
           targetPerHour: dto.targetPerHour,
         },
       });
-      await this.audit(tenantId, actorUserId, 'ACTIVITY_CREATED', activity.id, activity.name);
+      await this.audit(tenantId, actorUserId, 'ACTIVITY_CREATED', activity.id, { name: activity.name });
       return activity;
     } catch {
       throw new ConflictException('Código de atividade já existe');
@@ -53,9 +53,13 @@ export class ActivitiesService {
         departmentId: dto.departmentId,
       },
     });
-    await this.audit(tenantId, actorUserId, 'ACTIVITY_UPDATED', id, updated.name);
+    await this.audit(tenantId, actorUserId, 'ACTIVITY_UPDATED', id, {
+      name: updated.name,
+      before: { name: activity.name, status: activity.status, targetPerHour: activity.targetPerHour?.toString() ?? null, departmentId: activity.departmentId },
+      after: { name: updated.name, status: updated.status, targetPerHour: updated.targetPerHour?.toString() ?? null, departmentId: updated.departmentId },
+    });
     return updated;
   }
 
-  private audit(tenantId: string, userId: string, action: string, entityId: string, name: string) { return this.prisma.auditLog.create({ data: { tenantId, userId, action, entity: 'ACTIVITY', entityId, metadata: { name } } }); }
+  private audit(tenantId: string, userId: string, action: string, entityId: string, metadata: { name: string; before?: object; after?: object }) { return this.prisma.auditLog.create({ data: { tenantId, userId, action, entity: 'ACTIVITY', entityId, metadata } }); }
 }

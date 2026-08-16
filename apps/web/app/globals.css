@@ -142,6 +142,7 @@ th { color:var(--muted); font-size:13px; font-weight:600; }
 .audit-list > div { display:flex; justify-content:space-between; gap:16px; padding:12px 0; border-bottom:1px solid var(--border); }
 .audit-list span { color:var(--muted); font-size:13px; }
 .audit-actor { display:block; margin-top:4px; }
+.audit-change { display:block; margin-top:5px; color:#344054; font-size:12px; line-height:1.4; }
 .pagination { display:flex; align-items:center; justify-content:flex-end; gap:12px; margin-top:18px; color:var(--muted); font-size:14px; }
 .modal-backdrop { position:fixed; inset:0; z-index:20; display:grid; place-items:center; padding:20px; background:rgba(16,32,51,.45); }
 .access-modal { width:min(100%, 440px); display:grid; gap:14px; }

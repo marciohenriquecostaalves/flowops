@@ -65,6 +65,8 @@ export class OperationsService {
       throw new BadRequestException('Somente sessões em execução podem ser pausadas');
     }
 
+    const before = this.snapshot(session);
+
     const now = new Date();
     const productive = Math.max(0, Math.floor((now.getTime() - session.startedAt.getTime()) / 1000) - session.pausedSeconds);
 
@@ -77,7 +79,7 @@ export class OperationsService {
       },
       include: { employee: true, activity: true },
     });
-    await this.audit(tenantId, actorUserId, 'SESSION_PAUSED', id, updated);
+    await this.audit(tenantId, actorUserId, 'SESSION_PAUSED', id, updated, before);
     return updated;
   }
 
@@ -86,6 +88,8 @@ export class OperationsService {
     if (session.status !== 'PAUSED' || !session.pausedAt) {
       throw new BadRequestException('Somente sessões pausadas podem ser retomadas');
     }
+
+    const before = this.snapshot(session);
 
     const now = new Date();
     const paused = Math.max(0, Math.floor((now.getTime() - session.pausedAt.getTime()) / 1000));
@@ -99,7 +103,7 @@ export class OperationsService {
       },
       include: { employee: true, activity: true },
     });
-    await this.audit(tenantId, actorUserId, 'SESSION_RESUMED', id, updated);
+    await this.audit(tenantId, actorUserId, 'SESSION_RESUMED', id, updated, before);
     return updated;
   }
 
@@ -108,6 +112,8 @@ export class OperationsService {
     if (!['RUNNING', 'PAUSED'].includes(session.status)) {
       throw new BadRequestException('Sessão já encerrada');
     }
+
+    const before = this.snapshot(session);
 
     const now = new Date();
     let pausedSeconds = session.pausedSeconds;
@@ -132,18 +138,22 @@ export class OperationsService {
       },
       include: { employee: true, activity: true },
     });
-    await this.audit(tenantId, actorUserId, 'SESSION_FINISHED', id, updated);
+    await this.audit(tenantId, actorUserId, 'SESSION_FINISHED', id, updated, before);
     return updated;
   }
 
   async setUnits(tenantId: string, actorUserId: string, id: string, dto: UnitsDto) {
-    await this.assertSession(tenantId, id);
+    const session = await this.assertSession(tenantId, id);
+    if (!['RUNNING', 'PAUSED'].includes(session.status)) {
+      throw new BadRequestException('Somente sessões abertas podem receber atualização de unidades');
+    }
+    const before = this.snapshot(session);
     const updated = await this.prisma.activitySession.update({
       where: { id },
       data: { units: dto.units },
       include: { employee: true, activity: true },
     });
-    await this.audit(tenantId, actorUserId, 'SESSION_UNITS_UPDATED', id, updated);
+    await this.audit(tenantId, actorUserId, 'SESSION_UNITS_UPDATED', id, updated, before);
     return updated;
   }
 
@@ -198,9 +208,21 @@ export class OperationsService {
     return Array.from(byEmployee.values()).sort((a, b) => (b.productivity ?? -1) - (a.productivity ?? -1));
   }
 
-  private audit(tenantId: string, userId: string, action: string, entityId: string, session: { employee: { name: string; employeeCode: string }; activity: { name: string; code: string }; units: number }) {
+  private snapshot(session: { status: string; units: number; productiveSeconds: number; pausedSeconds: number; startedAt: Date; pausedAt: Date | null; endedAt: Date | null }) {
+    return {
+      status: session.status,
+      units: session.units,
+      productiveSeconds: session.productiveSeconds,
+      pausedSeconds: session.pausedSeconds,
+      startedAt: session.startedAt.toISOString(),
+      pausedAt: session.pausedAt?.toISOString() ?? null,
+      endedAt: session.endedAt?.toISOString() ?? null,
+    };
+  }
+
+  private audit(tenantId: string, userId: string, action: string, entityId: string, session: { employee: { name: string; employeeCode: string }; activity: { name: string; code: string }; units: number; status: string; productiveSeconds: number; pausedSeconds: number; startedAt: Date; pausedAt: Date | null; endedAt: Date | null }, before?: object) {
     return this.prisma.auditLog.create({
-      data: { tenantId, userId, action, entity: 'OPERATION', entityId, metadata: { employee: session.employee.name, employeeCode: session.employee.employeeCode, activity: session.activity.name, activityCode: session.activity.code, units: session.units } },
+      data: { tenantId, userId, action, entity: 'OPERATION', entityId, metadata: { employee: session.employee.name, employeeCode: session.employee.employeeCode, activity: session.activity.name, activityCode: session.activity.code, units: session.units, ...(before ? { before } : {}), after: this.snapshot(session) } },
     });
   }
 }

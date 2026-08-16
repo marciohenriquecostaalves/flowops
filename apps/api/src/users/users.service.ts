@@ -71,7 +71,24 @@ export class UsersService {
     } catch {
       throw new ConflictException('Já existe um usuário com este e-mail nesta empresa');
     }
-    await this.audit(tenantId, actorId, 'USER_UPDATED', id, { status: dto.status, role: dto.role });
+    await this.audit(tenantId, actorId, 'USER_UPDATED', id, {
+      before: {
+        name: user.name,
+        email: user.email,
+        status: user.status,
+        role: currentRole,
+        employeeId: user.employee?.id ?? null,
+        accessAreas: user.accessAreas,
+      },
+      after: {
+        name: updated.name,
+        email: updated.email,
+        status: updated.status,
+        role: updated.roles?.[0]?.role?.name ?? currentRole,
+        employeeId: finalEmployeeId ?? null,
+        accessAreas: updated.accessAreas,
+      },
+    });
     return updated;
   }
 

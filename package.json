@@ -8,12 +8,16 @@
     "build": "turbo build",
     "lint": "turbo lint",
     "test": "turbo test",
+    "test:e2e": "pnpm --filter @flowops/api test:e2e",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "db:generate": "pnpm --filter @flowops/database prisma:generate",
     "db:migrate": "pnpm --filter @flowops/database prisma:migrate",
+    "db:deploy": "pnpm --filter @flowops/database prisma:deploy",
     "db:seed": "pnpm --filter @flowops/database prisma:seed",
-    "db:studio": "pnpm --filter @flowops/database prisma:studio"
+    "db:studio": "pnpm --filter @flowops/database prisma:studio",
+    "db:backup": "bash scripts/db-backup.sh",
+    "db:restore": "bash scripts/db-restore.sh"
   },
   "devDependencies": {
     "prettier": "^3.6.2",
