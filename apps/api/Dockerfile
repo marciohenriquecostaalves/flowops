@@ -13,5 +13,8 @@ COPY . .
 RUN pnpm db:generate
 RUN pnpm --filter @flowops/api build
 
+RUN addgroup -S flowops && adduser -S flowops -G flowops && chown -R flowops:flowops /app
+USER flowops
+
 EXPOSE 4000
 CMD ["node", "apps/api/dist/src/main.js"]

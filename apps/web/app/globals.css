@@ -102,6 +102,14 @@ th { color:var(--muted); font-size:13px; font-weight:600; }
 .employee-summary { display:flex; align-items:center; gap:10px; min-width:220px; }
 .avatar { width:40px; height:40px; border-radius:50%; object-fit:cover; flex:0 0 auto; }
 .avatar-placeholder { display:grid; place-items:center; background:#d9eeeb; color:#0f766e; font-weight:800; }
+.qr-modal { width:min(100%, 430px); text-align:center; }
+.qr-label { display:grid; justify-items:center; gap:5px; }
+.qr-label h2 { margin:0; font-size:24px; }
+.qr-label p { margin:0; }
+.qr-label-brand { color:var(--primary); font-size:13px; font-weight:800; letter-spacing:.16em; }
+.qr-code { display:block; width:280px; height:280px; margin:12px 0 8px; }
+.qr-badge-code { color:var(--text); font-size:22px; letter-spacing:.08em; }
+.qr-modal-actions { justify-content:center; margin-top:20px; }
 @media (max-width: 900px) { .employee-form, .shift-form, .activity-form, .operation-form { grid-template-columns: repeat(2, minmax(0, 1fr)); } .session-row { align-items:flex-start; flex-direction:column; } }
 @media (max-width: 600px) { .employee-form, .shift-form, .activity-form, .operation-form { grid-template-columns: 1fr; } .header { align-items:flex-start; } .header-actions { flex-wrap:wrap; justify-content:flex-end; } }
 .error { color:#b42318; margin:12px 0; }
@@ -177,6 +185,44 @@ th { color:var(--muted); font-size:13px; font-weight:600; }
 .history-status-paused { color:#9a6700; background:#fff4ce; }
 .history-status-cancelled { color:#b42318; background:#fee4e2; }
 .history-pagination { justify-content:space-between; }
+.history-punch-card { margin-top:16px; }
+.punch-type { display:inline-flex; align-items:center; padding:5px 8px; border-radius:999px; font-size:12px; font-weight:700; white-space:nowrap; }
+.punch-type-start { color:#067647; background:#e6f4ed; }
+.punch-type-pause { color:#9a6700; background:#fff4ce; }
+.punch-type-resume { color:#0f766e; background:#e7f4f2; }
+.punch-type-finish { color:#175cd3; background:#eaf2ff; }
+.kiosk-page { min-height:100vh; padding:32px clamp(20px, 6vw, 100px); background:linear-gradient(160deg, #f7fbfb 0%, #edf5f5 100%); color:var(--text); }
+.kiosk-header { display:flex; justify-content:space-between; align-items:flex-start; gap:20px; max-width:980px; margin:0 auto 32px; }
+.kiosk-kicker { color:var(--primary); font-size:13px; font-weight:800; letter-spacing:.14em; }
+.kiosk-header h1 { margin:8px 0 4px; font-size:clamp(28px, 4vw, 44px); letter-spacing:-.05em; }
+.kiosk-header p { margin:0; color:var(--muted); font-size:17px; }
+.kiosk-header-actions { display:flex; align-items:center; gap:12px; }
+.kiosk-device-label { color:var(--muted); font-size:13px; font-weight:700; }
+.kiosk-scan-card, .kiosk-result, .kiosk-setup { max-width:980px; margin:0 auto 20px; }
+.kiosk-scan-card { display:grid; justify-items:center; padding:clamp(28px, 6vw, 72px); text-align:center; }
+.kiosk-scan-icon { display:grid; place-items:center; width:72px; height:72px; margin-bottom:18px; border-radius:22px; background:#d8eeeb; color:var(--primary); font-size:42px; font-weight:800; }
+.kiosk-scan-card h2 { margin:0 0 8px; font-size:clamp(24px, 4vw, 36px); }
+.kiosk-scan-card p { margin:0 0 26px; }
+.kiosk-scan-card form { display:flex; width:min(100%, 680px); gap:10px; }
+.kiosk-scan-input { flex:1; min-width:0; border:2px solid #b9dcd8; border-radius:12px; padding:16px; font-size:20px; text-align:center; outline:none; }
+.kiosk-scan-input:focus { border-color:var(--primary); box-shadow:0 0 0 4px rgba(15,118,110,.12); }
+.kiosk-submit { min-width:190px; font-size:16px; }
+.kiosk-error { width:min(100%, 680px); margin:18px 0 0; text-align:center; }
+.kiosk-result { display:flex; justify-content:space-between; align-items:center; gap:20px; border-color:#9dd5cf; }
+.kiosk-result-employee { display:flex; align-items:center; gap:16px; }
+.kiosk-result-employee h2 { margin:4px 0; }
+.kiosk-result-employee p { margin:0; }
+.kiosk-result-label { color:var(--primary); font-size:13px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; }
+.kiosk-avatar { width:64px; height:64px; border-radius:18px; object-fit:cover; }
+.kiosk-avatar-placeholder { display:grid; place-items:center; background:#d9eeeb; color:var(--primary); font-size:26px; font-weight:800; }
+.kiosk-result-meta { display:grid; justify-items:end; gap:4px; color:var(--muted); text-align:right; }
+.kiosk-result-meta strong { color:var(--text); font-size:22px; }
+.kiosk-result-meta small { font-size:12px; }
+.kiosk-setup { max-width:620px; }
+.kiosk-setup h2 { margin-top:0; }
+.kiosk-setup textarea, .kiosk-token-modal textarea { width:100%; min-height:110px; resize:vertical; border:1px solid var(--border); border-radius:10px; padding:12px; font:inherit; }
+.kiosk-clear { margin-top:16px; }
+.kiosk-token-modal { max-width:560px; }
 @media (max-width: 900px) {
   .sidebar { width:76px; padding:20px 10px; }
   .brand { justify-content:center; padding:0 0 25px; }
@@ -207,6 +253,25 @@ th { color:var(--muted); font-size:13px; font-weight:600; }
   .history-heading { align-items:flex-start; }
   .password-reset > div { flex-direction:column; }
   .audit-list > div { align-items:flex-start; flex-direction:column; gap:4px; }
+  .kiosk-page { padding:20px; }
+  .kiosk-header { flex-direction:column; }
+  .kiosk-header-actions { width:100%; justify-content:space-between; }
+  .kiosk-scan-card form { flex-direction:column; }
+  .kiosk-submit { width:100%; }
+  .kiosk-result { align-items:flex-start; flex-direction:column; }
+  .kiosk-result-meta { justify-items:start; text-align:left; }
+}
+@media print {
+  @page { size: 85mm 55mm; margin: 0; }
+  body { background:#fff; }
+  body * { visibility:hidden !important; }
+  .qr-printable, .qr-printable * { visibility:visible !important; }
+  .qr-printable { position:absolute; inset:0; width:85mm; min-height:55mm; margin:0; padding:4mm; border:0; border-radius:0; box-shadow:none; }
+  .qr-modal-actions { display:none !important; }
+  .qr-code { width:32mm; height:32mm; margin:2mm 0 1mm; }
+  .qr-label h2 { font-size:15pt; }
+  .qr-label-brand { font-size:8pt; }
+  .qr-badge-code { font-size:12pt; }
 }
 @media (max-width: 800px) {
   .login-page { grid-template-columns:1fr; }

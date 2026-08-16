@@ -32,6 +32,13 @@ enum SessionStatus {
   CANCELLED
 }
 
+enum ProductionPunchType {
+  START
+  PAUSE
+  RESUME
+  FINISH
+}
+
 model Tenant {
   id          String       @id @default(cuid())
   name        String
@@ -54,6 +61,8 @@ model Tenant {
   shifts      Shift[]
   jobTitles   JobTitle[]
   roles       Role[]
+  kioskDevices KioskDevice[]
+  productionPunches ProductionPunch[]
 }
 
 model User {
@@ -124,6 +133,7 @@ model Employee {
   jobTitle     String?
   jobTitleId   String?
   photoData    String?
+  badgeCode    String?
   status       EmployeeStatus @default(ACTIVE)
   departmentId String?
   shiftId      String?
@@ -135,8 +145,10 @@ model Employee {
   shift        Shift?         @relation(fields: [shiftId], references: [id], onDelete: SetNull)
   jobTitleRef  JobTitle?      @relation(fields: [jobTitleId], references: [id], onDelete: SetNull)
   sessions     ActivitySession[]
+  productionPunches ProductionPunch[]
 
   @@unique([tenantId, employeeCode])
+  @@unique([tenantId, badgeCode])
   @@index([tenantId, status])
 }
 
@@ -197,6 +209,8 @@ model Activity {
   tenant       Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   department   Department?    @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   sessions     ActivitySession[]
+  kioskDevices KioskDevice[]
+  productionPunches ProductionPunch[]
 
   @@unique([tenantId, code])
   @@index([tenantId, status])
@@ -219,9 +233,49 @@ model ActivitySession {
   tenant             Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   employee           Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   activity           Activity     @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  punches            ProductionPunch[]
 
   @@index([tenantId, employeeId, status])
   @@index([tenantId, startedAt])
+}
+
+model KioskDevice {
+  id          String   @id @default(cuid())
+  tenantId    String
+  activityId  String
+  name        String
+  code        String
+  secretHash  String
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  activity    Activity @relation(fields: [activityId], references: [id], onDelete: Restrict)
+  punches     ProductionPunch[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, active])
+}
+
+model ProductionPunch {
+  id            String              @id @default(cuid())
+  tenantId      String
+  employeeId    String
+  kioskDeviceId String
+  activityId    String
+  sessionId     String
+  type          ProductionPunchType
+  sequence      Int
+  recordedAt    DateTime            @default(now())
+  tenant        Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employee      Employee            @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  kioskDevice   KioskDevice         @relation(fields: [kioskDeviceId], references: [id], onDelete: Cascade)
+  activity      Activity            @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  session       ActivitySession     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, sequence])
+  @@index([tenantId, employeeId, recordedAt])
+  @@index([tenantId, kioskDeviceId, recordedAt])
 }
 
 model AuditLog {

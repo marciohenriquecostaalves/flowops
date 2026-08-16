@@ -28,4 +28,16 @@ export class HistoryController {
     return this.service.scopeForUser(req.user.tenantId, req.user.sub, req.user.roles ?? [])
       .then((scope) => this.service.export(req.user.tenantId, query, scope));
   }
+
+  @Get('punches')
+  punches(@Req() req: any, @Query() query: HistoryQueryDto) {
+    return this.service.scopeForUser(req.user.tenantId, req.user.sub, req.user.roles ?? [])
+      .then((scope) => this.service.punches(req.user.tenantId, query, scope));
+  }
+
+  @Get('punches/export')
+  punchesExport(@Req() req: any, @Query() query: HistoryQueryDto) {
+    return this.service.scopeForUser(req.user.tenantId, req.user.sub, req.user.roles ?? [])
+      .then((scope) => this.service.punchesExport(req.user.tenantId, query, scope));
+  }
 }

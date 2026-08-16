@@ -14,5 +14,8 @@ ARG NEXT_PUBLIC_API_URL=http://localhost:4000/api
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 RUN pnpm --filter @flowops/web build
 
+RUN addgroup -S flowops && adduser -S flowops -G flowops && chown -R flowops:flowops /app
+USER flowops
+
 EXPOSE 3000
 CMD ["pnpm", "--filter", "@flowops/web", "start"]

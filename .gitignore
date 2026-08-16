@@ -148,3 +148,6 @@ backups/
 
 # Homologação local (contém secrets)
 deploy/staging.env
+
+# Produção local/servidor (contém secrets)
+deploy/production.env

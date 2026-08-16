@@ -22,7 +22,11 @@
     "staging:seed": "docker compose --env-file deploy/staging.env -p flowops-staging -f docker-compose.staging.yml exec -T api pnpm db:seed",
     "staging:down": "docker compose --env-file deploy/staging.env -p flowops-staging -f docker-compose.staging.yml down",
     "staging:logs": "docker compose --env-file deploy/staging.env -p flowops-staging -f docker-compose.staging.yml logs -f --tail=100",
-    "staging:smoke": "bash scripts/staging-smoke.sh"
+    "staging:smoke": "bash scripts/staging-smoke.sh",
+    "production:up": "docker compose --env-file deploy/production.env -p flowops-production -f docker-compose.production.yml up -d --build",
+    "production:down": "docker compose --env-file deploy/production.env -p flowops-production -f docker-compose.production.yml down",
+    "production:logs": "docker compose --env-file deploy/production.env -p flowops-production -f docker-compose.production.yml logs -f --tail=100",
+    "production:smoke": "bash scripts/production-smoke.sh"
   },
   "devDependencies": {
     "prettier": "^3.6.2",

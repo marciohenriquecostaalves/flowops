@@ -1,0 +1,107 @@
+name: flowops-production
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: flowops
+      POSTGRES_PASSWORD: ${PROD_POSTGRES_PASSWORD:?Defina PROD_POSTGRES_PASSWORD}
+      POSTGRES_DB: flowops
+    volumes:
+      - flowops-production-postgres:/var/lib/postgresql/data
+    networks:
+      - private
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U flowops -d flowops']
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  redis:
+    image: redis:8-alpine
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes']
+    volumes:
+      - flowops-production-redis:/data
+    networks:
+      - private
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${PROD_DATABASE_URL:?Defina PROD_DATABASE_URL}
+      API_PORT: 4000
+      CORS_ORIGIN: ${PROD_CORS_ORIGIN:?Defina PROD_CORS_ORIGIN}
+      JWT_ACCESS_SECRET: ${PROD_JWT_ACCESS_SECRET:?Defina PROD_JWT_ACCESS_SECRET}
+      JWT_REFRESH_SECRET: ${PROD_JWT_REFRESH_SECRET:?Defina PROD_JWT_REFRESH_SECRET}
+      JWT_ACCESS_EXPIRES_IN: ${PROD_JWT_ACCESS_EXPIRES_IN:-15m}
+      JWT_REFRESH_EXPIRES_IN: ${PROD_JWT_REFRESH_EXPIRES_IN:-7d}
+    command: ['sh', '-c', 'pnpm db:deploy && node apps/api/dist/src/main.js']
+    ports:
+      - '127.0.0.1:${PROD_API_PORT:-4000}:4000'
+    networks:
+      - private
+      - edge
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:4000/api/health/ready').then(r => { if (!r.ok) process.exit(1) }).catch(() => process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${PROD_PUBLIC_API_URL:?Defina PROD_PUBLIC_API_URL}
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:${PROD_WEB_PORT:-3000}:3000'
+    networks:
+      - edge
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3000').then(r => { if (!r.ok) process.exit(1) }).catch(() => process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+networks:
+  private:
+    internal: true
+  edge:
+
+volumes:
+  flowops-production-postgres:
+  flowops-production-redis:
